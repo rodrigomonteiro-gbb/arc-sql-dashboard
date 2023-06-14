@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "sources": [
+      {
+          "sqlServer": "<VMNAME>\<INSTANCE>:<port>", 
+          "sqlDatabase": "master",
+          "targetAuthentication": {
+              "authType": "WINDOWS"
+          },
+          "sqlType": "sqlserver",
+          "datasets": [
+              {
+                  "id": "sqlserver_active_sessions",
+                  "enabled": true,
+                  "frequency": "00:00:30"
+              } 
+          ] 
+      }
+  ],
+  "destination": {
+      "serverEndpoint": "https://<CLUSTERNAME>.<LOCATION>.kusto.windows.net",
+      "managementServerEndpoint": "https://ingest-<CLUSTERNAME>.<LOCATION>.kusto.windows.net",
+      "databaseName": "dbwatcherDB"
+  },
+  "metricsDestination": {
+      "serverEndpoint": "https://<CLUSTERNAME>.<LOCATION>.kusto.windows.net",
+      "managementServerEndpoint": "https://ingest-<CLUSTERNAME>.<LOCATION>.kusto.windows.net",
+      "databaseName": "dbwatcherDB",
+      "adxTableName": "MonitoringAgentMetrics"
+  },
+  "logsDestination": {
+      "serverEndpoint": "https://<CLUSTERNAME>.<LOCATION>.kusto.windows.net",
+      "managementServerEndpoint": "https://ingest-<CLUSTERNAME>.<LOCATION>.kusto.windows.net",
+      "databaseName": "dbwatcherDB",
+      "adxTableName": "MonitoringAgentLogs"
+  }
+}

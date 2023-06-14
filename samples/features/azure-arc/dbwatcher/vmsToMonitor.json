@@ -1,0 +1,12 @@
+{
+    "vms":[
+        {
+            "Name":"<ARCVMNAME1>",
+            "ResourceGroup":"<ARCVMNAME1RESOURCEGROUP>"
+        },
+        {
+            "Name":"<ARCVMNAME1>",
+            "ResourceGroup":"<ARCVMNAME1RESOURCEGROUP>"
+        }
+    ]
+}
