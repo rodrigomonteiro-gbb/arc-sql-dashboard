@@ -1,7 +1,7 @@
 $location = ""
 $rgname = ""
 $subscriptionID = "" 
-$kustoClusterName = ""
+$kustoClusterName = "kcdbwatcher01"
 $clidatabase = "dbwatcherDB"
 $adminUserName = ""
 $script = ".create-merge table MonitoringAgentLogs (TIMESTAMP:datetime, log_level:string, message:string, agent_machine_name:string, process_id:int)\n\n.create-merge table MonitoringAgentMetrics (TIMESTAMP:datetime, agent_machine_name:string, process_id:int, dataset:string, metric_name:string, metric_value:real, metric_type:string, metric_unit:string, server_name:string, database_name:string)"
