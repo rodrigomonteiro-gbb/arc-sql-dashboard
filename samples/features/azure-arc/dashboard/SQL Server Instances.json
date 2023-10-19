@@ -44,7 +44,7 @@
                 },
                 {
                   "name": "query",
-                  "value": "// Count of all resources\nresources\n| where  type == \"microsoft.sql/managedinstances\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances\" or \n  type == \"microsoft.sql/servers\"\n| summarize Servers=count()\n",
+                  "value": "// Count of all resources\nresources\n| where  type == \"microsoft.sql/managedinstances\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances\" or \n  type == \"microsoft.sql/servers\" or \n  type==\"microsoft.sqlvirtualmachine/sqlvirtualmachines\"\n| summarize Servers=count()\n",
                   "isOptional": true
                 }
               ],
@@ -83,11 +83,6 @@
                   "isOptional": true
                 },
                 {
-                  "name": "query",
-                  "value": "resources\n| where  type == \"microsoft.sql/managedinstances\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances\" or \n  type == \"microsoft.sql/servers\"\n| summarize ResourceCount=count() by iff( type==\"microsoft.sql/managedinstances\",\"Azure SQL Manage Instance\"\n,iif(type==\"microsoft.azurearcdata/sqlserverinstances\",\"Arc Enable SQL Server\",iif(type==\"microsoft.sql/servers\",\"Azure SQL Server On VM\",\"Azure SQL DB\")))\n",
-                  "isOptional": true
-                },
-                {
                   "name": "chartType",
                   "value": 2,
                   "isOptional": true
@@ -98,6 +93,11 @@
                     "scope": 0,
                     "values": []
                   },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where  type == \"microsoft.sql/managedinstances\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances\" or \n  type == \"microsoft.sql/servers\" or \n  type == \"microsoft.sqlvirtualmachine/sqlvirtualmachines\"\n| summarize ResourceCount=count() by iff( \n  type==\"microsoft.sql/managedinstances\",\"Azure SQL Manage Instance\"\n  ,iif(\n    type==\"microsoft.azurearcdata/sqlserverinstances\",\"Arc Enable SQL Server\"\n    ,iif(\n      type==\"microsoft.sql/servers\",\"Azure SQL DB\"\n      ,iif(\n        type==\"microsoft.sqlvirtualmachine/sqlvirtualmachines\",\"Azure SQL Server On VM\",\"Not Found\"\n        )\n      )\n    )\n  )\n",
                   "isOptional": true
                 }
               ],
@@ -149,7 +149,7 @@
                 },
                 {
                   "name": "query",
-                  "value": "// Count of all resources\nresources\n| where  type == \"microsoft.sql/managedinstances/databases\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances/databases\" or \n  type == \"microsoft.sql/servers/databases\"\n| count ",
+                  "value": "// Count of all resources\nresources\n| where  (type == \"microsoft.sql/managedinstances/databases\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances/databases\" or \n  type == \"microsoft.sql/servers/databases\" ) and \n  (name !in (\"master\",\"model\",\"msdb\") and \n  name !contains \"tempdb\")\n| count \n\n\n",
                   "isOptional": true
                 }
               ],
@@ -202,7 +202,7 @@
                 },
                 {
                   "name": "query",
-                  "value": "// top ten resource types by number of resources\n// Count of all resources\nresources\n| where  type == \"microsoft.sql/managedinstances/databases\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances/databases\" or \n  type == \"microsoft.sql/servers/databases\"\n| summarize ResourceCount=count() by iff( type==\"microsoft.sql/managedinstances/databases\",\"Azure SQL Manage Instance/databases\"\n,iif(type==\"microsoft.azurearcdata/sqlserverinstances/databases\",\"Arc Enable SQL Server\",iif(type==\"microsoft.sql/servers\",\"Azure SQL Server On VM\",\"Azure SQL DB\")))",
+                  "value": "// top ten resource types by number of resources\n// Count of all resources\nresources\n| where  (type == \"microsoft.sql/managedinstances/databases\" or \n  type == \"microsoft.azurearcdata/sqlserverinstances/databases\" or \n  type == \"microsoft.sql/servers/databases\" or \n  type==\"microsoft.sqlvirtualmachine/sqlvirtualmachines/databases\") and \n  (name !in (\"master\",\"model\",\"msdb\") and \n  name !contains \"tempdb\")\n| summarize ResourceCount=count() by iff( \n  type==\"microsoft.sql/managedinstances/databases\",\"Azure SQL Manage Instance\"\n  ,iif(\n    type==\"microsoft.azurearcdata/sqlserverinstances/databases\",\"Arc Enable SQL Server\"\n    ,iif(\n      type==\"microsoft.sql/servers/databases\",\"Azure SQL DB\"\n      ,iif(\n        type==\"microsoft.sqlvirtualmachine/sqlvirtualmachines/databases\",\"Azure SQL Server On VM\",\"Not Found\"\n        )\n      )\n    )\n  )",
                   "isOptional": true
                 }
               ],
@@ -254,7 +254,59 @@
                 },
                 {
                   "name": "query",
-                  "value": "resources\r\n| where  type == \"microsoft.sql/managedinstances/databases\" or \r\n  type == \"microsoft.azurearcdata/sqlserverinstances/databases\" or \r\n  type == \"microsoft.sql/servers/databases\"\r\n| summarize Dbs=count(),Offline=sum(toint(iif(tostring(properties[\"state\"])!=\"Online\",1,0)))\r\n,SizeMB=sum(toint(iif(tostring(properties[\"sizeMB\"])!=\"\",properties[\"sizeMB\"],0)))\r\n,Type=max(iff( type==\"microsoft.sql/managedinstances/databases\",\"Azure SQL Manage Instance\"\r\n,iif(type==\"microsoft.azurearcdata/sqlserverinstances/databases\",\"Arc Enable SQL Server\",iif(type==\"microsoft.sql/servers/databases\",\"Azure SQL Server On VM\",\"Azure SQL DB\")))) by Instances = tostring(split(tostring(id),\"/\")[8])\r\n| order by Offline",
+                  "value": "resources\r\n| where type == \"microsoft.hybridcompute/machines\"\r\n| where properties.detectedProperties.mssqldiscovered == \"true\"\r\n| extend machineIdHasSQLServerDiscovered = id\r\n| project name, machineIdHasSQLServerDiscovered, resourceGroup, subscriptionId\r\n| join kind= leftouter (\r\n    resources\r\n    | where type == \"microsoft.hybridcompute/machines/extensions\"\r\n    | where properties.type in (\"WindowsAgent.SqlServer\",\"LinuxAgent.SqlServer\")\r\n    | extend machineIdHasSQLServerExtensionInstalled = iff(id contains \"/extensions/WindowsAgent.SqlServer\" or id contains \"/extensions/LinuxAgent.SqlServer\", substring(id, 0, indexof(id, \"/extensions/\")), \"\")\r\n    | project Provisioning_State = properties.provisioningState,\r\n    License_Type = properties.settings.LicenseType,\r\n    ESU = iff(notnull(properties.settings.enableExtendedSecurityUpdates), \"enabled\", \"\"),\r\n    Extension_Version = properties.instanceView.typeHandlerVersion,\r\n    Exlcuded_instaces = properties.ExcludedSqlInstances,\r\n    Purview = iff(notnull(properties.settings.ExternalPolicyBasedAuthorization),\"enabled\",\"\"),\r\n    Entra = iff(notnull(properties.settings.AzureAD),\"enabled\",\"\"),\r\n    BPA = iff(notnull(properties.settings.AssessmentSettings),\"enabled\",\"\"),\r\n    machineIdHasSQLServerExtensionInstalled)\r\non $left.machineIdHasSQLServerDiscovered == $right.machineIdHasSQLServerExtensionInstalled\r\n| where isnotempty(machineIdHasSQLServerExtensionInstalled)\r\n| project-away machineIdHasSQLServerDiscovered, machineIdHasSQLServerExtensionInstalled",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Arc SQL details",
+                "subtitle": ""
+              }
+            }
+          },
+          "5": {
+            "position": {
+              "x": 0,
+              "y": 9,
+              "colSpan": 19,
+              "rowSpan": 4
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where  (type == \"microsoft.sql/managedinstances/databases\" or \r\n  type == \"microsoft.azurearcdata/sqlserverinstances/databases\" or \r\n  type == \"microsoft.sql/servers/databases\" ) and \r\n  (name !in (\"master\",\"model\",\"msdb\") and \r\n  name !contains \"tempdb\")\r\n| summarize Dbs=count(),Offline=sum(toint(iif(tostring(properties[\"state\"])!=\"Online\" and tostring(properties[\"status\"])!=\"Online\" and tostring(properties[\"status\"])!=\"Paused\" ,1,0)))\r\n,SizeMB=sum(toint(iif(tostring(properties[\"sizeMB\"])!=\"\",properties[\"sizeMB\"],0)))\r\n,Type=max(\r\n        iff( type==\"microsoft.sql/managedinstances/databases\",\"Azure SQL Manage Instance\"\r\n            ,iif(type==\"microsoft.azurearcdata/sqlserverinstances/databases\",\"Arc Enable SQL Server\"\r\n                ,iif(type==\"microsoft.sql/servers/databases\",\"Azure SQL DB\"\r\n                ,iif(type==\"microsoft.sqlvirtualmachine/sqlvirtualmachines/databases\",\"Azure SQL Server On VM\",\"Not Found\")\r\n                )\r\n              )\r\n            )\r\n          ) by Instances = tostring(split(tostring(id),\"/\")[8])\r\n| order by Offline",
                   "isOptional": true
                 }
               ],
@@ -266,10 +318,10 @@
               }
             }
           },
-          "5": {
+          "6": {
             "position": {
               "x": 0,
-              "y": 9,
+              "y": 13,
               "colSpan": 6,
               "rowSpan": 6
             },
@@ -319,10 +371,10 @@
               }
             }
           },
-          "6": {
+          "7": {
             "position": {
               "x": 6,
-              "y": 9,
+              "y": 13,
               "colSpan": 7,
               "rowSpan": 6
             },
@@ -372,10 +424,10 @@
               }
             }
           },
-          "7": {
+          "8": {
             "position": {
               "x": 13,
-              "y": 9,
+              "y": 13,
               "colSpan": 6,
               "rowSpan": 6
             },
@@ -425,10 +477,10 @@
               }
             }
           },
-          "8": {
+          "9": {
             "position": {
               "x": 0,
-              "y": 15,
+              "y": 19,
               "colSpan": 6,
               "rowSpan": 6
             },
@@ -478,10 +530,10 @@
               }
             }
           },
-          "9": {
+          "10": {
             "position": {
               "x": 6,
-              "y": 15,
+              "y": 19,
               "colSpan": 6,
               "rowSpan": 6
             },
@@ -531,10 +583,10 @@
               }
             }
           },
-          "10": {
+          "11": {
             "position": {
               "x": 12,
-              "y": 15,
+              "y": 19,
               "colSpan": 7,
               "rowSpan": 6
             },
@@ -584,10 +636,10 @@
               }
             }
           },
-          "11": {
+          "12": {
             "position": {
               "x": 0,
-              "y": 21,
+              "y": 25,
               "colSpan": 6,
               "rowSpan": 5
             },
@@ -637,10 +689,10 @@
               }
             }
           },
-          "12": {
+          "13": {
             "position": {
               "x": 6,
-              "y": 21,
+              "y": 25,
               "colSpan": 6,
               "rowSpan": 5
             },
