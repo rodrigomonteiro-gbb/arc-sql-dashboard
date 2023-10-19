@@ -223,7 +223,16 @@ Sub Main()
 
 	Console.ReadLine()
 	
-	
+	' Create destination folder if not present
+	Try 
+		RsSnk.CreateFolder(SnkFolder.Substring(1), "/", Nothing)
+	Catch ex As Exception
+		If (ex.Message.Contains("Microsoft.ReportingServices.Diagnostics.Utilities.ItemAlreadyExistsException"))
+			Console.WriteLine("Folder already exists.")
+		Else 
+			Console.WriteLine(ex.Message + Environment.NewLine)
+		End If
+	End Try
 
 	Try
 		'Roles & Policies
@@ -604,7 +613,7 @@ Sub RelinkItemReferences(snkItem As CatalogItem, srcItem As CatalogItem)
 			Dim type As String = RsSrc.GetItemType(srcRef.Reference)
 			Dim snkRef As ItemReference = New ItemReference
 			snkRef.Name = srcRef.Name
-			snkRef.Reference = GetSnkFilename(GetSnkPath(srcRef.Reference), type)
+			snkRef.Reference = GetSnkFilename(GetSnkPathRef(srcRef.Reference), type)
 
 			snkReferences.Add(snkRef)
 		Next
@@ -923,6 +932,15 @@ End Sub
 '''''''''''''' Helper Functions '''''''''''''''''''''''
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+'Helper function to link snk reference with relative paths
+Function GetSnkPathRef(srcPath As String) As String
+	Dim snkPath = srcPath
+	If srcSiteUrl isNot Nothing
+		snkPath = srcPath.Remove(0, srcSiteUrl.LastIndexOf("/"))
+	End If
+	Return snkPath
+End Function
+		
 'Helper function to construct correctly formatted path
 Function GetSnkPath(srcPath As String) As String
 	If Not SrcIsNative Then

@@ -96,7 +96,8 @@ try {
     $login, $pwd    = Get-Content '/var/opt/mssql/secrets/assessment' -Encoding UTF8NoBOM -TotalCount 2
     $securePassword = ConvertTo-SecureString $pwd -AsPlainText -Force
     $credential     = New-Object System.Management.Automation.PSCredential ($login, $securePassword)
-
+    $securePassword.MakeReadOnly()
+    
     Write-Verbose "Acquired credentials"
 
     $serverInstance = '.'
@@ -111,6 +112,7 @@ try {
         }
     }
 
+    # IMPORTANT: If the script is run in trusted environments and there is a prelogin handshake error, add -TrustServerCertificate flag in lines 116, 117 and 124 
     $serverName = (Invoke-SqlCmd -ServerInstance $serverInstance -Credential $credential -Query "SELECT @@SERVERNAME")[0]
     $hostName   = (Invoke-SqlCmd -ServerInstance $serverInstance -Credential $credential -Query "SELECT HOST_NAME()")[0]
 

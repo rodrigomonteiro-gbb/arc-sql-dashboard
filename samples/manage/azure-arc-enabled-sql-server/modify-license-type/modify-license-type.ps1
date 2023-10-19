@@ -1,22 +1,23 @@
 #
-# This script provides a scaleable solution to set or change the license type on all Azure-connected SQL Servers
-# in a specific subscription, a list of subscruiptions or the entire account. By default, it sets the new license
-# type value only on the servers where it is undefined.
+# This script provides a scaleable solution to set or change the license type and/or enable or disable the ESU policy 
+# on all Azure-connected SQL Servers in a specified scope.
 #
 # You can specfy a single subscription to scan, or provide subscriptions as a .CSV file with the list of IDs.
 # If not specified, all subscriptions your role has access to are scanned.
 #
 # The script accepts the following command line parameters:
 #
-# -SubId [subscription_id] | [csv_file_name]    (Limit scope to specific subscriptions. Accepts a .csv file with the list of subscriptions.
+# -SubId [subscription_id] | [csv_file_name]    (Optional. Limits the scope to specific subscriptions. Accepts a .csv file with the list of subscriptions.
 #                                               If not specified all subscriptions will be scanned)
-# -ResourceGroup [resource_goup]                (Limit scope  to a specific resoure group)
-# -MachineName [machine_name]                   (Limit scope to a specific machine)
-# -LicenseType [license_type_value]             (Specific LT value)
-# -All                                          (Required. Set the new license type on all installed extensions.
-#                                               By default the value is set only if license type is undefined undefined)
+# -ResourceGroup [resource_goup]                (Optional. Limits the scope to a specific resoure group)
+# -MachineName [machine_name]                   (Optional. Limits the scope to a specific machine)
+# -LicenseType [license_type_value]             (Optional. Sets the license type to the specified value)
+# -EnabelESU  [Yes or No]                       (Optional. Enables the ESU policy the value is "Yes" or disables it if the value is "No"
+#                                               To enable, the license type must be "Paid" or "PAYG"
+# -Force                                        (Optional. Forces the chnahge of the license type to the specified value on all installed extensions.
+#                                               If Force is not specified, the -LicenseType value is set only if undefined. Ignored if -LicenseType  is not specified
 #
-# The script uses a function ConvertTo-HashTable that was created by Adam Bertram (@adam-bertram).
+# This script uses a function ConvertTo-HashTable that was created by Adam Bertram (@adam-bertram).
 # The function was originally published on https://4sysops.com/archives/convert-json-to-a-powershell-hash-table/
 # and is used here with the author's permission.
 #
@@ -28,39 +29,15 @@ param (
     [string] $ResourceGroup,
     [Parameter (Mandatory= $false)]
     [string] $MachineName,
-    [Parameter (Mandatory= $true)]
+    [Parameter (Mandatory= $false)]
     [ValidateSet("PAYG","Paid","LicenseOnly", IgnoreCase=$false)]
     [string] $LicenseType,
     [Parameter (Mandatory= $false)]
-    [boolean] $All=$false
+    [ValidateSet("Yes","No", IgnoreCase=$false)]
+    [string] $EnableESU,
+    [Parameter (Mandatory= $false)]
+    [switch] $Force
 )
-
-function CheckModule ($m) {
-
-    # This function ensures that the specified module is imported into the session
-    # If module is already imported - do nothing
-
-    if (!(Get-Module | Where-Object {$_.Name -eq $m})) {
-         # If module is not imported, but available on disk then import
-        if (Get-Module -ListAvailable | Where-Object {$_.Name -eq $m}) {
-            Import-Module $m
-        }
-        else {
-
-            # If module is not imported, not available on disk, but is in online gallery then install and import
-            if (Find-Module -Name $m | Where-Object {$_.Name -eq $m}) {
-                Install-Module -Name $m -Force -Verbose -Scope CurrentUser
-                Import-Module $m
-            }
-            else {
-
-                # If module is not imported, not available and not in online gallery then abort
-                write-host "Module $m not imported, not available and not in online gallery, exiting."
-                EXIT 1
-            }
-        }
-    }
-}
 
 function ConvertTo-Hashtable {
     [CmdletBinding()]
@@ -101,6 +78,60 @@ function ConvertTo-Hashtable {
     }
 }
 
+# This function checks if the specified module is imported into the session and if not installes and/or imports it
+function LoadModule
+{
+    param (
+        [parameter(Mandatory = $true)][string] $name
+    )
+
+    $retVal = $true
+
+    if (!(Get-Module -Name $name))
+    {
+        $retVal = Get-Module -ListAvailable | Where-Object {$_.Name -eq $name}
+
+        if ($retVal)
+        {
+            try
+            {
+                Import-Module $name -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                write-host "The request to lload module $($name) failed with the following error:"
+                write-host $_.Exception.Message                
+                $retVal = $false
+            }
+        }
+        else {
+
+            # If module is not imported, not available on disk, but is in online gallery then install and import
+            if (Find-Module -Name $name) {
+                Install-Module -Name $name -Force -Verbose -Scope CurrentUser
+                try
+                {
+                Import-Module $name -ErrorAction SilentlyContinue
+                }
+                catch
+                {
+                    write-host "The request to lload module $($name) failed with the following error:"
+                    write-host $_.Exception.Message                
+                    $retVal = $false
+                }
+            }
+            else {
+
+                # If module is not imported, not available and not in online gallery then abort
+                write-host "Module $($name) not imported, not available and not in online gallery, exiting."
+                EXIT 1
+            }
+        }
+    }
+
+    return $retVal
+}
+
 #
 # Suppress warnings
 #
@@ -113,16 +144,18 @@ $requiredModules = @(
     "Az.ConnectedMachine",
     "Az.ResourceGraph"
 )
-$requiredModules | Foreach-Object {CheckModule $_}
+$requiredModules | Foreach-Object {LoadModule $_}
 
 # Subscriptions to scan
+
+$tenantID = (Get-AzureADTenantDetail).ObjectId
 
 if ($SubId -like "*.csv") {
     $subscriptions = Import-Csv $SubId
 }elseif($SubId -ne ""){
-    $subscriptions = [PSCustomObject]@{SubscriptionId = $SubId} | Get-AzSubscription 
+    $subscriptions = [PSCustomObject]@{SubscriptionId = $SubId} | Get-AzSubscription -TenantID $tenantID
 }else{
-    $subscriptions = Get-AzSubscription
+    $subscriptions = Get-AzSubscription -TenantID $tenantID
 }
 
 
@@ -135,7 +168,7 @@ foreach ($sub in $subscriptions){
     if ($sub.State -ne "Enabled") {continue}
 
     try {
-        Set-AzContext -SubscriptionId $sub.Id
+        Set-AzContext -SubscriptionId $sub.Id -Tenant $tenantID
     }catch {
         write-host "Invalid subscription: $($sub.Id)"
         {continue}
@@ -176,21 +209,50 @@ foreach ($sub in $subscriptions){
             ExtensionType = $r.extensionType
         }
 
+        $WriteSettings = $false
         $settings = @{}
         $settings = $r.properties.settings | ConvertTo-Json | ConvertFrom-Json | ConvertTo-Hashtable
 
-        if ($settings.ContainsKey("LicenseType")) {
-            if ($All) {
-                if ($settings["LicenseType"] -ne $LicenseType ) {
+        # set the license type or update (if -Force). ESU  must be disabled to set to LicenseOnly. 
+        $LO_Allowed = (!$settings["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
+            
+        if ($LicenseType) {
+            if (($LicenseType -eq "LicenseOnly") -and !$LO_Allowed) {
+                write-host "ESU must be disabled before license type can be set to $($LicenseType)"
+            } else {
+                if ($settings.ContainsKey("LicenseType")) {
+                    if ($Force) {
+                        $settings["LicenseType"] = $LicenseType
+                        $WriteSettings = $true
+                    }
+                } else {
                     $settings["LicenseType"] = $LicenseType
-                    Write-Host "Resource group: [$($r.resourceGroup)] Connected machine: [$($r.MachineName)] : License type: [$($settings["LicenseType"])]"
-                    Set-AzConnectedMachineExtension @setId -Settings $settings -NoWait | Out-Null
+                    $WriteSettings = $true
                 }
             }
-        } else {
-            $settings["LicenseType"] = $LicenseType
-            Write-Host "Resource group: [$($r.resourceGroup)] Connected machine: [$($r.MachineName)] : License type: [$($settings["LicenseType"])]"
-            Set-AzConnectedMachineExtension @setId -Settings $settings -NoWait | Out-Null
+            
+        }
+        
+        # Enable ESU for qualified license types or disable 
+        if ($EnableESU) {
+            if (($settings["LicenseType"] | select-string "Paid","PAYG") -or  ($EnableESU -eq "No")) {
+                $settings["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
+                $settings["esuLastUpdatedTimestamp"] = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+                $WriteSettings = $true
+            } else {
+                write-host "The configured license type does not support ESUs" 
+            }
+        }
+
+        If ($WriteSettings) {
+            Write-Host "Resource group: [$($r.resourceGroup)] Connected machine: [$($r.MachineName)] : License type: [$($settings["LicenseType"])] : Enable ESU: [$($settings["enableExtendedSecurityUpdates"])]"
+            try { 
+                Set-AzConnectedMachineExtension @setId -Settings $settings -NoWait | Out-Null
+            } catch {
+                write-host "The request to modify the extenion object failed with the following error:"
+                write-host $_.Exception.Message
+                {continue}
+            }
         }
     }
 }

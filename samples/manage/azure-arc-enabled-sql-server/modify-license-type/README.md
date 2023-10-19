@@ -3,21 +3,20 @@ services: Azure Arc-enabled SQL Server
 platforms: Azure
 author: anosov1960
 ms.author: sashan
-ms.date: 2/16/2023
+ms.date: 9/22/2023
 ---
 
 
 # Overview
 
-This script allows you to to set or change the license type on all Azure-connected SQL Servers
-on a specific resource, in a single resource group, a specific subscription, a list of subscriptions or all subscriptions to which you have access. By default, it sets the specified license type value on the servers where it is undefined. But you can request to set it on all servers in the selected scope.
+This script provides a scaleable solution to set or change the license type and/or enable or disable the ESU policy on all Azure-connected SQL Servers in a specified scope.
 
 You can specify a single subscription to scan, or provide a list of subscriptions as a .CSV file.
 If not specified, all subscriptions your role has access to are scanned.
 
 # Prerequisites
 
-- You must have at least a *Contributor* role in each subscription you modify.
+- You must have at least a *Azure Connected Machine Resource Administrator* role in each subscription you modify.
 - The Azure extension for SQL Server is updated to version 1.1.2230.58 or newer.
 - You must be connected to Azure AD and logged in to your Azure account. If your account have access to multiple tenants, make sure to log in with a specific tenant ID.
 
@@ -28,11 +27,12 @@ The script accepts the following command line parameters:
 
 | **Parameter** &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;  | **Value** &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; | **Description** |
 |:--|:--|:--|
-|-SubId|subscription_id *or* a file_name|Optional: subscription id or a .csv file with the list of subscriptions<sup>1</sup>. If not specified all subscriptions will be scanned|
-|-ResourceGroup |resource_group_name|Optional: Limit the scope  to a specific resource group|
-|-MachineName |machine_name|Optional: Limit the scope to a specific machine|
-|-LicenceType | "Paid", "PAYG" or "LicenseOnly"| Required: Specifies the license type value |
-|-All|\$True or \$False (default)|Optional. Set the new license type for all installed extensions. By default the value is set only if license type is undefined.|
+|-SubId|subscription_id *or* a file_name|Optional: Subscription id or a .csv file with the list of subscriptions<sup>1</sup>. If not specified all subscriptions will be scanned|
+|-ResourceGroup |resource_group_name|Optional: Limits the scope  to a specific resource group|
+|-MachineName |machine_name|Optional: Limits the scope to a specific machine|
+|-LicenceType | "Paid", "PAYG" or "LicenseOnly"| Optional: Sets the license type to the specified value |
+|-EnableESU | "Yes", "No" | Optional. Enables the ESU policy the value is "Yrs" or disables it if the value is "No". To enable, the license type must be "Paid" or "PAYG"|
+|-Force| |Optional. Forces the change of the license type to the specified value on all installed extensions. If -Force is not specified, the -LicenseType value is set only if undefined. Ignored if -LicenseType  is not specified|
 
 <sup>1</sup>You can create a .csv file using the following command and then edit to remove the subscriptions you don't  want to scan.
 ```PowerShell
@@ -52,15 +52,31 @@ The following command will scan all the subscriptions to which the user has acce
 The following command will scan the subscription `<sub_id>` and set the license type value to "Paid" on all servers.
 
 ```PowerShell
-.\modify-license-type.ps1 -SubId <sub_id> -LicenseType Paid -All $True
+.\modify-license-type.ps1 -SubId <sub_id> -LicenseType Paid -Force
 ```
 
 ## Example 3
 
-The following command will scan resource group <resource_group_name> in the subscription `<sub_id>` and set the license type value to "PAYG" on all servers.
+The following command will scan resource group `<resource_group_name>` in the subscription `<sub_id>` and set the license type value to "PAYG" on all servers.
 
 ```PowerShell
-.\modify-license-type.ps1 -SubId <sub_id> -ResourceGroup <resource_group_name> -LicenseType PAYG -All $True
+.\modify-license-type.ps1 -SubId <sub_id> -ResourceGroup <resource_group_name> -LicenseType PAYG -Force
+```
+
+## Example 4
+
+The following command will set License Type to 'Paid" and enables ESU on all servers in the subscriptions `<sub_id>` and the resource group `<resource_group_name>`.
+
+```console
+.\modify-license-type.ps1 -SubId <sub_id> -ResourceGroup <resource_group_name> -LicenseType Paid -EnableESU Yes -Force
+```
+
+## Example 5
+
+The following command will disable ESU on all servers in the subscriptions `<sub_id>`.
+    
+```console
+.\modify-license-type.ps1 -SubId <sub_id> -EnableESU No 
 ```
 
 # Running the script using Cloud Shell
@@ -69,10 +85,10 @@ This option is recommended because Cloud shell has the Azure PowerShell modules 
 
 1. Launch the [Cloud Shell](https://shell.azure.com/). For details, [read more about PowerShell in Cloud Shell](https://aka.ms/pscloudshell/docs).
 
-1. Connect to Azure AD
+1. Connect to Azure AD. You must specify `<tenant_id>` if you have access to more than one AAD tenants.
 
     ```console
-   Connect-AzureAD
+   Connect-AzureAD -TenantID <tenant_id>
     ```
 
 1. Upload the script to your cloud shell using the following command:
@@ -81,11 +97,7 @@ This option is recommended because Cloud shell has the Azure PowerShell modules 
     curl https://raw.githubusercontent.com/microsoft/sql-server-samples/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1 -o modify-license-type.ps1
     ```
 
-1. Run the script.  
-
-    ```console
-   .//modify-license-type.ps1 -LicenseType Paid
-    ```
+1. Run the script.
 
 > [!NOTE]
 > - To paste the commands into the shell, use `Ctrl-Shift-V` on Windows or `Cmd-v` on MacOS.
@@ -115,15 +127,11 @@ Use the following steps to run the script in a PowerShell session on your PC.
     Install-Module Az -Scope CurrentUser -Repository PSGallery -Force
     ```
 
-1. Connect to Azure AD and log in to your Azure account.
+1. Connect to Azure AD and log in to your Azure account. You must specify `<tenant_id>` if you have access to more than one AAD tenants.
 
     ```console
-    Connect-AzureAD
+    Connect-AzureAD -TenantID <tenant_id>
     Connect-AzAccount -TenantID (Get-AzureADTenantDetail).ObjectId
     ```
 
-1. Run the script using the desired scope.
-
-    ```console
-   .//modify-license-type.ps1 -LicenseType Paid
-    ```
+1. Run the script. 
