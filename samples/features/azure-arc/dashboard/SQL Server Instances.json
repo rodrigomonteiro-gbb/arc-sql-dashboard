@@ -1,10 +1,10 @@
 {
   "properties": {
-    "lenses": {
-      "0": {
+    "lenses": [
+      {
         "order": 0,
-        "parts": {
-          "0": {
+        "parts": [
+          {
             "position": {
               "x": 0,
               "y": 0,
@@ -56,7 +56,7 @@
               }
             }
           },
-          "1": {
+          {
             "position": {
               "x": 3,
               "y": 0,
@@ -109,7 +109,7 @@
               }
             }
           },
-          "2": {
+          {
             "position": {
               "x": 9,
               "y": 0,
@@ -161,7 +161,7 @@
               }
             }
           },
-          "3": {
+          {
             "position": {
               "x": 12,
               "y": 0,
@@ -214,7 +214,7 @@
               }
             }
           },
-          "4": {
+          {
             "position": {
               "x": 0,
               "y": 5,
@@ -266,7 +266,7 @@
               }
             }
           },
-          "5": {
+          {
             "position": {
               "x": 0,
               "y": 9,
@@ -318,7 +318,7 @@
               }
             }
           },
-          "6": {
+          {
             "position": {
               "x": 0,
               "y": 13,
@@ -371,7 +371,7 @@
               }
             }
           },
-          "7": {
+          {
             "position": {
               "x": 6,
               "y": 13,
@@ -424,7 +424,7 @@
               }
             }
           },
-          "8": {
+          {
             "position": {
               "x": 13,
               "y": 13,
@@ -477,7 +477,7 @@
               }
             }
           },
-          "9": {
+          {
             "position": {
               "x": 0,
               "y": 19,
@@ -530,7 +530,7 @@
               }
             }
           },
-          "10": {
+          {
             "position": {
               "x": 6,
               "y": 19,
@@ -583,7 +583,7 @@
               }
             }
           },
-          "11": {
+          {
             "position": {
               "x": 12,
               "y": 19,
@@ -636,7 +636,7 @@
               }
             }
           },
-          "12": {
+          {
             "position": {
               "x": 0,
               "y": 25,
@@ -689,7 +689,7 @@
               }
             }
           },
-          "13": {
+          {
             "position": {
               "x": 6,
               "y": 25,
@@ -741,10 +741,115 @@
                 "subtitle": ""
               }
             }
+          },
+          {
+            "position": {
+              "x": 12,
+              "y": 25,
+              "colSpan": 8,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where type == \"microsoft.azurearcdata/sqlserverinstances\"\n| extend machineIdHasSQLServerDiscovered = replace('Microsoft.AzureArcData/SqlServerInstances','Microsoft.HybridCompute/machines',['id']), Edition = tostring(properties['edition']), Cores = toint(properties['vCore'])\n| project name, machineIdHasSQLServerDiscovered, resourceGroup, subscriptionId,Edition,Cores\n| join kind= leftouter (\n    resources\n    | where type == \"microsoft.hybridcompute/machines/extensions\"\n    | where properties.type in (\"WindowsAgent.SqlServer\",\"LinuxAgent.SqlServer\")\n    | extend machineIdHasSQLServerExtensionInstalled = iff(id contains \"/extensions/WindowsAgent.SqlServer\" or id contains \"/extensions/LinuxAgent.SqlServer\", substring(id, 0, indexof(id, \"/extensions/\")), \"\")\n    | project Provisioning_State = properties.provisioningState,\n    License_Type = tostring(properties.settings.LicenseType),\n    ESU = iff(notnull(properties.settings.enableExtendedSecurityUpdates), \"enabled\", \"\"),\n    Extension_Version = properties.instanceView.typeHandlerVersion,\n    Exlcuded_instaces = properties.ExcludedSqlInstances,\n    Purview = iff(notnull(properties.settings.ExternalPolicyBasedAuthorization),\"enabled\",\"\"),\n    Entra = iff(notnull(properties.settings.AzureAD),\"enabled\",\"\"),\n    BPA = iff(notnull(properties.settings.AssessmentSettings),\"enabled\",\"\"),\n    machineIdHasSQLServerExtensionInstalled)\non $left.machineIdHasSQLServerDiscovered == $right.machineIdHasSQLServerExtensionInstalled\n| where isnotempty(machineIdHasSQLServerExtensionInstalled)\n|extend type = strcat(Edition,'-',License_Type)\n| project-away machineIdHasSQLServerDiscovered, machineIdHasSQLServerExtensionInstalled\n| summarize Count= sum(Cores) by  Edition,type\n| order by Count desc",
+                  "isOptional": true
+                },
+                {
+                  "name": "chartType",
+                  "value": 1,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryChartTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Core per Edition and License tpe",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 30,
+              "colSpan": 12,
+              "rowSpan": 4
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where type == \"microsoft.azurearcdata/sqlserverinstances\"\r\nand properties['edition'] in ('Enterprise','Standard')\r\n| project endition = tostring(properties['edition']), cores = toint(properties['vCore']), sqllicname = strcat('sql', tostring(properties['edition'])) , SQL_Edition = tostring(properties['edition'])\r\n| summarize Count=sum(cores),max(sqllicname),SQL_Edition = max(SQL_Edition) by endition\r\n| join kind= leftouter (\r\n    resources\r\n| where name  == 'sqlEnterprise'\r\nand ['type'] == 'microsoft.azurearcdata/sqlserverlicenses'\r\n| project licname = name,\r\n  totalCores = properties['physicalCores'] )\r\non $left.max_sqllicname == $right.licname\r\n|extend Used_Cores = Count, Owned_Cores = iif(notnull(totalCores),totalCores,'0')\r\n, UnLicensed_Cores = iif(toint(iff(notnull(totalCores),totalCores,'0')) - toint(Count)<0,(toint(iff(notnull(totalCores),totalCores,'0')) - toint(Count))*-1,0)\r\n, NotUsed_Cores = iif(toint(iff(notnull(totalCores),totalCores,'0')) - toint(Count) > 0,toint(iff(notnull(totalCores),totalCores,'0')) - toint(Count),0)\r\n|project SQL_Edition, Used_Cores, Owned_Cores,NotUsed_Cores,UnLicensed_Cores",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "SQL Server License Compliance",
+                "subtitle": ""
+              }
+            }
           }
-        }
+        ]
       }
-    },
+    ],
     "metadata": {
       "model": {
         "timeRange": {
@@ -765,5 +870,5 @@
   "tags": {
     "hidden-title": "SQL Server Instances"
   },
-  "apiVersion": "2015-08-01-preview"
+  "apiVersion": "2022-12-01-preview"
 }
