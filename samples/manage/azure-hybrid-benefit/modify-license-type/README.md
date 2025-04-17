@@ -60,7 +60,7 @@ You can schedule the command to run as a runbook. Follow these steps using the A
 Open a command shell on your device and run the command below. This will copy the script to your local folder.
 
 ```console
-curl https://raw.githubusercontent.com/microsoft/sql-server-samples/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-license-type.ps1
+curl curl https://raw.githubusercontent.com/rodrigomonteiro-gbb/arc-sql-dashboard/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 -o Schedule-PAYG-Transition.ps1
 ```
 ### 2. Create or Use an Existing Automation Account
 [Create a new automation account](https://ms.portal.azure.com/#create/Microsoft.AutomationAccount)  or open an existing one.
