@@ -39,23 +39,33 @@ param(
 
 # === Configuration ===
 $scriptUrls = @{
+    General = 'https://raw.githubusercontent.com/rodrigomonteiro-gbb/arc-sql-dashboard/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-license-type.ps1'
     Azure = 'https://github.com/rodrigomonteiro-gbb/arc-sql-dashboard/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1'
     Arc   = 'https://github.com/microsoft/sql-server-samples/blob/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1'
 }
-
+# Define a dedicated download folder under TEMP
+$downloadFolder = './PayTransitionDownloads/'
+# Ensure destination folder exists
+if (-not (Test-Path $foldownloadFolderder)) {
+    Write-Host "Creating folder: $downloadFolder"
+    New-Item -Path $downloadFolder -ItemType Directory -Force | Out-Null
+}
 # Helper to download a script and invoke it
 function Invoke-RemoteScript {
     param(
         [Parameter(Mandatory)]
         [string]$Url,
+        [Parameter(Mandatory)]
         [ValidateSet("Arc","Azure","Both")]
-        string]$Target,
+        [string]$Target,
+        [Parameter(Mandatory)]
         [ValidateSet("Single","Scheduled")]
         [string]$RunMode
     )
     $fileName = Split-Path $Url -Leaf
-    $dest     = Join-Path "./$($Target)/" $fileName
+    $dest     = Join-Path downloadFolder $fileName
 
+    
     Write-Host "Downloading $Url to $dest..."
     Invoke-RestMethod -Uri $Url -OutFile $dest
 
@@ -66,13 +76,25 @@ function Invoke-RemoteScript {
 # === Single run: download & invoke the appropriate script(s) ===
 switch ($Target) {
     'Azure' {
-        Invoke-RemoteScript -Url $scriptUrls.Azure
+        Invoke-RemoteScript -Url $scriptUrls.Azure -Target $Target -RunMode $RunMode
     }
     'Arc' {
-        Invoke-RemoteScript -Url $scriptUrls.Arc
+        Invoke-RemoteScript -Url $scriptUrls.Arc -Target $Target -RunMode $RunMode
     }
     'Both' {
-        Invoke-RemoteScript -Url $scriptUrls.Azure
-        Invoke-RemoteScript -Url $scriptUrls.Arc
+        Invoke-RemoteScript -Url $scriptUrls.Azure  -Target $Target -RunMode $RunMode
+        Invoke-RemoteScript -Url $scriptUrls.Arc    -Target $Target -RunMode $RunMode
+    }
+}
+
+# === Cleanup downloaded files & folder ===
+if (Test-Path $downloadFolder) {
+    Write-Host "Cleaning up downloaded scripts in $downloadFolder..."
+    try {
+        Remove-Item -Path $downloadFolder -Recurse -Force
+        Write-Host "Cleanup successful: removed $downloadFolder"
+    }
+    catch {
+        Write-Warning "Cleanup failed: $_"
     }
 }
