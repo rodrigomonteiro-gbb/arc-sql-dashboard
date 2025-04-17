@@ -24,6 +24,9 @@ SQL Instance Pools
 DataFactory SSIS Integration Runtimes
 This automation helps ensure that your licensing configuration is consistent across your environment without manual intervention.
 
+.VERSION
+    1.0.0 - Initial version.
+
 .PARAMETER SubId
     A single subscription ID or a CSV file name containing a list of subscriptions.
 

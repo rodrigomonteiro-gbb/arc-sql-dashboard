@@ -66,7 +66,9 @@ $roleAssignments = @(
     @{ RoleName = "SQL Managed Instance Contributor"; Description = "For Azure SQL Managed Instances and Azure SQL Instance Pools" },
     @{ RoleName = "Data Factory Contributor"; Description = "For Azure Data Factory SSIS Integration Runtimes" },
     @{ RoleName = "Virtual Machine Contributor"; Description = "For SQL Servers in Azure Virtual Machines" },
-    @{RoleName = "SQL Server Contributor"; Description = "For Elastic-Pools in Azure Virtual Machines"}
+    @{RoleName = "SQL Server Contributor"; Description = "For Elastic-Pools in Azure Virtual Machines"},
+    @{RoleName = "Azure Connected Machine Resource Administrator "; Description = "For SQL Servers in Arc Virtual Machines"},
+    @{RoleName = "Reader "; Description = "For read resources in the subscription"}
 )
 function Connect-Azure {
         try {
