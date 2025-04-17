@@ -36,12 +36,15 @@ param(
     [ValidateSet("Single","Scheduled")]
     [string]$RunMode
 )
-
+$environment = "microsoft"
+if($env:MYAPP_ENV -ne $null) {
+    $environment = $env:MYAPP_ENV
+}
 # === Configuration ===
 $scriptUrls = @{
-    General = 'https://raw.githubusercontent.com/rodrigomonteiro-gbb/arc-sql-dashboard/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-license-type.ps1'
-    Azure = 'https://github.com/rodrigomonteiro-gbb/arc-sql-dashboard/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1'
-    Arc   = 'https://github.com/microsoft/sql-server-samples/blob/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1'
+    General = "https://github.com/$($environment)/arc-sql-dashboard/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/set-azurerunbook.ps1"
+    Azure = "https://github.com/$($environment)/arc-sql-dashboard/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
+    Arc   = "https://github.com/$($environment)/sql-server-samples/blob/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1"
 }
 # Define a dedicated download folder under TEMP
 $downloadFolder = './PayTransitionDownloads/'
