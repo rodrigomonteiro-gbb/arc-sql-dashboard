@@ -34,22 +34,69 @@ param(
 
     [Parameter(Mandatory, Position=1)]
     [ValidateSet("Single","Scheduled")]
-    [string]$RunMode
+    [string]$RunMode,
+
+    [Parameter(Mandatory = $false, Position=2)]
+    [bool]$cleanDownloads=$false,
+
+    [Parameter (Mandatory= $false)]
+    [ValidateSet("Yes","No", IgnoreCase=$false)]
+    [string] $UsePcoreLicense="No",
+
+    [Parameter(Mandatory=$false)]
+    [string]$targetResourceGroup,
+
+    [Parameter(Mandatory=$false)]
+    [string]$targetSubscription,
+
+    [Parameter(Mandatory=$false)]
+    [string]$AutomationAccountName
+
+    [Parameter(Mandatory=$false)]
+    [string]$Location
 )
+$git = "sql-server-samples"
 $environment = "microsoft"
-if($env:MYAPP_ENV -ne $null) {
+if($null -ne $env:MYAPP_ENV) {
+    $git = "arc-sql-dashboard"
     $environment = $env:MYAPP_ENV
 }
 # === Configuration ===
 $scriptUrls = @{
-    General = "https://github.com/$($environment)/arc-sql-dashboard/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/set-azurerunbook.ps1"
-    Azure = "https://github.com/$($environment)/arc-sql-dashboard/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
-    Arc   = "https://github.com/$($environment)/sql-server-samples/blob/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1"
+    General = @{
+        URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/set-azurerunbook.ps1"
+        Args = @{
+            ResourceGroupName= $ResourceGroupName 
+            AutomationAccountName= $AutomationAccountName 
+            Location= $Location
+            RunbookName= $RunbookName 
+            RunbookPath= $RunbookPath
+            RunbookArg=@{}
+            targetResourceGroup= $targetResourceGroup
+            targetSubscription= $targetSubscription}
+    Azure = @{
+        URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
+        Args = @{
+            Force_Start_On_Resources = $true
+            SubId = $targetSubscription
+            ResourceGroup = $targetResourceGroup
+        }
+    }
+    Arc   = @{
+        URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1"
+        Args =@{
+            LicenseType= "PAYG"
+            Force = $true
+            UsePcoreLicense=$UsePcoreLicense
+            SubId = $targetSubscription
+            ResourceGroup = $targetResourceGroup
+        }
+   }
 }
 # Define a dedicated download folder under TEMP
 $downloadFolder = './PayTransitionDownloads/'
 # Ensure destination folder exists
-if (-not (Test-Path $foldownloadFolderder)) {
+if (-not (Test-Path $downloadFolder)) {
     Write-Host "Creating folder: $downloadFolder"
     New-Item -Path $downloadFolder -ItemType Directory -Force | Out-Null
 }
@@ -66,38 +113,62 @@ function Invoke-RemoteScript {
         [string]$RunMode
     )
     $fileName = Split-Path $Url -Leaf
-    $dest     = Join-Path downloadFolder $fileName
+    $dest     = Join-Path $downloadFolder $fileName
 
     
     Write-Host "Downloading $Url to $dest..."
     Invoke-RestMethod -Uri $Url -OutFile $dest
 
     Write-Host "Running $dest..."
-    #& $dest
+    if($Target -eq "Both") {
+        $scriptUrls.General.Args.RunbookArg = $scriptUrls.Arc.Args
+        $scriptUrls.General.Args.RunbookName = "ModifyLicenseTypeArc"
+        $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls.Arc.URL -Leaf
+        & $dest @($scriptUrls.General.Args) -ErrorAction Stop
+
+        $scriptUrls.General.Args.RunbookArg = $scriptUrls.Azure.Args
+        $scriptUrls.General.Args.RunbookName = "ModifyLicenseTypeAzure"
+        $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls.Azure.URL -Leaf
+        & $dest @($scriptUrls.General.Args) -ErrorAction Stop
+    }else
+    {
+        $scriptUrls.General.Args.RunbookArg = $scriptUrls[$Target].Args
+        $scriptUrls.General.Args.RunbookName = "ModifyLicenseType$Target"
+        $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls[$Target].URL -Leaf
+        # Invoke the script with the specified arguments
+      & $dest @($scriptUrls[$Target].Args) -ErrorAction Stop
+    }
 }
 
 # === Single run: download & invoke the appropriate script(s) ===
-switch ($Target) {
-    'Azure' {
-        Invoke-RemoteScript -Url $scriptUrls.Azure -Target $Target -RunMode $RunMode
+if($RunMode -eq "Single") {
+    switch ($Target) {
+        'Azure' {
+            Invoke-RemoteScript -Url $scriptUrls.Azure.URL -Target $Target -RunMode $RunMode
+        }
+        'Arc' {
+            Invoke-RemoteScript -Url $scriptUrls.Arc.URL -Target $Target -RunMode $RunMode
+        }
+        'Both' {
+            Invoke-RemoteScript -Url $scriptUrls.Azure.URL  -Target $Target -RunMode $RunMode
+            Invoke-RemoteScript -Url $scriptUrls.Arc.URL    -Target $Target -RunMode $RunMode
+        }
     }
-    'Arc' {
-        Invoke-RemoteScript -Url $scriptUrls.Arc -Target $Target -RunMode $RunMode
-    }
-    'Both' {
-        Invoke-RemoteScript -Url $scriptUrls.Azure  -Target $Target -RunMode $RunMode
-        Invoke-RemoteScript -Url $scriptUrls.Arc    -Target $Target -RunMode $RunMode
-    }
+    Write-Host "Single run completed."
+}else{
+    Write-Host "Run 'Scheduled'."
+    Invoke-RemoteScript -Url $scriptUrls.General.URL -Target $Target -RunMode $RunMode
 }
-
 # === Cleanup downloaded files & folder ===
-if (Test-Path $downloadFolder) {
-    Write-Host "Cleaning up downloaded scripts in $downloadFolder..."
-    try {
-        Remove-Item -Path $downloadFolder -Recurse -Force
-        Write-Host "Cleanup successful: removed $downloadFolder"
-    }
-    catch {
-        Write-Warning "Cleanup failed: $_"
+if($cleanDownloads -eq $true) {
+    if (Test-Path $downloadFolder) {
+        Write-Host "Cleaning up downloaded scripts in $downloadFolder..."
+        try {
+            Remove-Item -Path $downloadFolder -Recurse -Force
+            Write-Host "Cleanup successful: removed $downloadFolder"
+        }
+        catch {
+            Write-Warning "Cleanup failed: $_"
+        }
     }
 }

@@ -51,8 +51,17 @@ param(
     [string]$RunbookPath,
 
     [Parameter(Mandatory = $false)]
+    [Hashtable] $RunbookArg,
+    
+    [Parameter(Mandatory = $false)]
     [ValidateSet("PowerShell","PowerShell72", "PowerShellWorkflow", "Graph", "Python2", "Python3")]
-    [string]$RunbookType = "PowerShell"
+    [string]$RunbookType = "PowerShell72",
+
+    [Parameter(Mandatory = $false)]
+    [string]$targetResourceGroup,
+
+    [Parameter(Mandatory = $false)]
+    [string]$targetSubscription
 )
 # Suppress unnecessary logging output
 $VerbosePreference      = "SilentlyContinue"
