@@ -1,66 +1,52 @@
 <#
 .SYNOPSIS
-    Creates or use an Azure Automation account and imports a runbook.
+    Creates or uses an Azure Automation account and imports a runbook.
 
 .DESCRIPTION
-    This script connects to Azure, creates a resource group (if it does not exist),
-    creates an Automation account, imports a runbook from a specified file, and then publishes
-    the runbook. The runbook type defaults to "PowerShell", but you can change it to other types
-    like "PowerShellWorkflow", "Python2", "Python3", or "Graph" if needed.
+    This script:
+      - Connects to Azure (PowerShell + CLI).
+      - Creates the resource group if it doesn't exist.
+      - Creates the Automation account (with system identity) if it doesn't exist.
+      - Assigns a set of built‑in roles to that managed identity.
+      - Imports or updates the specified runbook, publishes it.
+      - Creates a daily schedule (if missing) and links it to the runbook.
+      - Starts a one‑off job of the runbook.
 
 .PARAMETER ResourceGroupName
-    Name of the resource group in which the Automation account will be created.
+    The resource group in which to create/use the Automation account.
 
 .PARAMETER AutomationAccountName
-    Name of the Azure Automation account.
+    The Automation account name.
 
 .PARAMETER Location
-    Azure region where the resource group and automation account will be created (e.g., "EastUS").
+    Azure region for the RG and account (e.g. "EastUS").
 
 .PARAMETER RunbookName
-    Name to assign to the imported runbook in the Automation account.
+    The name under which to import/publish the runbook.
 
 .PARAMETER RunbookPath
-    Full local file path to the runbook script that will be imported.
+    Full path to the local .ps1 runbook file.
 
 .PARAMETER RunbookType
-    Type of runbook. Allowed values: "PowerShell", "PowerShellWorkflow", "Graph",
-    "Python2", "Python3" (default is "PowerShell").
+    Runbook type: "PowerShell", "PowerShell72", "PowerShellWorkflow", "Graph", "Python2", or "Python3".
+    Default: "PowerShell72".
 
-.EXAMPLE
-    .\CreateAutomationAndImportRunbook.ps1 -ResourceGroupName "MyResourceGroup" `
-        -AutomationAccountName "MyAutomation" -Location "EastUS" `
-        -RunbookName "TestRunbook" -RunbookPath "C:\Runbooks\TestRunbook.ps1" `
-        -RunbookType "PowerShell"
+.PARAMETER targetResourceGroup
+    (Optional) Resource group passed into the runbook as a parameter.
+
+.PARAMETER targetSubscription
+    (Optional) Subscription ID passed into the runbook as a parameter.
 #>
 
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$ResourceGroupName,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$AutomationAccountName,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$Location,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$RunbookName,
-    
-    [Parameter(Mandatory = $true)]
-    [string]$RunbookPath,
-
-    [Parameter(Mandatory = $false)]
-    [Hashtable] $RunbookArg,
-    
-    [Parameter(Mandatory = $false)]
-    [ValidateSet("PowerShell","PowerShell72", "PowerShellWorkflow", "Graph", "Python2", "Python3")]
+    [Parameter(Mandatory)][string]$ResourceGroupName,
+    [Parameter(Mandatory)][string]$AutomationAccountName,
+    [Parameter(Mandatory)][string]$Location,
+    [Parameter(Mandatory)][string]$RunbookName,
+    [Parameter(Mandatory)][string]$RunbookPath,
+    [ValidateSet("PowerShell","PowerShell72","PowerShellWorkflow","Graph","Python2","Python3")]
     [string]$RunbookType = "PowerShell72",
-
-    [Parameter(Mandatory = $false)]
     [string]$targetResourceGroup,
-
-    [Parameter(Mandatory = $false)]
     [string]$targetSubscription
 )
 # Suppress unnecessary logging output
@@ -215,12 +201,12 @@ Register-AzAutomationScheduledRunbook `
     -RunbookName $RunbookName `
     -ScheduleName $ScheduleName `
     -Parameters $sampleParameters  | Out-Null
-
+<#
 Start-AzAutomationRunbook `
     -ResourceGroupName $ResourceGroupName `
     -AutomationAccountName $AutomationAccountName `
     -Name $RunbookName `
     -Parameters $sampleParameters `
     -ErrorAction SilentlyContinue | Out-Null
-
+#>
 Write-Output "Runbook '$RunbookName' has been imported and published successfully."

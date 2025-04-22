@@ -50,9 +50,9 @@ param(
     [string]$targetSubscription,
 
     [Parameter(Mandatory=$false)]
-    [string]$AutomationAccountName
+    [string]$AutomationAccountName="aaccAzureArcSQLLicenseType",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$true)]
     [string]$Location
 )
 $git = "sql-server-samples"
@@ -74,6 +74,7 @@ $scriptUrls = @{
             RunbookArg=@{}
             targetResourceGroup= $targetResourceGroup
             targetSubscription= $targetSubscription}
+        }
     Azure = @{
         URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
         Args = @{
@@ -125,16 +126,27 @@ function Invoke-RemoteScript {
         $scriptUrls.General.Args.RunbookName = "ModifyLicenseTypeArc"
         $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls.Arc.URL -Leaf
         & $dest @($scriptUrls.General.Args) -ErrorAction Stop
-
+       
+        foreach ($arg in $scriptUrls.Arc.Args) {
+            Write-Host "Arc Args: $($arg.Key) = $($arg.Value)"
+        }
+ 
         $scriptUrls.General.Args.RunbookArg = $scriptUrls.Azure.Args
         $scriptUrls.General.Args.RunbookName = "ModifyLicenseTypeAzure"
         $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls.Azure.URL -Leaf
-        & $dest @($scriptUrls.General.Args) -ErrorAction Stop
+        foreach ($arg in $scriptUrls.Azure.Args) {
+            Write-Host "Azure Args: $($arg.Key) = $($arg.Value)"
+        }
+        & $dest @($scriptUrls.General.Args) -ErrorAction Stope
     }else
     {
         $scriptUrls.General.Args.RunbookArg = $scriptUrls[$Target].Args
         $scriptUrls.General.Args.RunbookName = "ModifyLicenseType$Target"
         $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls[$Target].URL -Leaf
+        foreach ($arg in $scriptUrls.General.Args) {
+            Write-Host "Gerneral Args: $($arg.Key) = $($arg.Value)"
+        }
+
         # Invoke the script with the specified arguments
       & $dest @($scriptUrls[$Target].Args) -ErrorAction Stop
     }
@@ -144,14 +156,14 @@ function Invoke-RemoteScript {
 if($RunMode -eq "Single") {
     switch ($Target) {
         'Azure' {
-            Invoke-RemoteScript -Url $scriptUrls.Azure.URL -Target $Target -RunMode $RunMode
+            #Invoke-RemoteScript -Url $scriptUrls.Azure.URL -Target $Target -RunMode $RunMode
         }
         'Arc' {
-            Invoke-RemoteScript -Url $scriptUrls.Arc.URL -Target $Target -RunMode $RunMode
+            #Invoke-RemoteScript -Url $scriptUrls.Arc.URL -Target $Target -RunMode $RunMode
         }
         'Both' {
-            Invoke-RemoteScript -Url $scriptUrls.Azure.URL  -Target $Target -RunMode $RunMode
-            Invoke-RemoteScript -Url $scriptUrls.Arc.URL    -Target $Target -RunMode $RunMode
+            #Invoke-RemoteScript -Url $scriptUrls.Azure.URL  -Target $Target -RunMode $RunMode
+            #Invoke-RemoteScript -Url $scriptUrls.Arc.URL    -Target $Target -RunMode $RunMode
         }
     }
     Write-Host "Single run completed."
