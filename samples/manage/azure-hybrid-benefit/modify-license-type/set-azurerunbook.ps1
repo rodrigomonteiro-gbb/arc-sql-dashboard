@@ -156,14 +156,14 @@ if ($null -eq $principalId) {
         }
     }
 }
-
+$downloadFolder = './PayTransitionDownloads/'
 # Import the runbook into the Automation Account.
 if (-not (Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $RunbookName -ErrorAction SilentlyContinue)) {
     Write-Output "Importing Runbook '$RunbookName' from file '$RunbookPath' into Automation Account '$AutomationAccountName'..."
     Import-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
         -Name $RunbookName `
         -ResourceGroupName $ResourceGroupName `
-        -Path $RunbookPath `
+        -Path $downloadFolder+$RunbookPath `
         -Type $RunbookType `
         -Force `
         -Published `
