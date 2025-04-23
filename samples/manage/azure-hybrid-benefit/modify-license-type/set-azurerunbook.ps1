@@ -111,7 +111,7 @@ Write-Output "Connecting to Azure..."
 Connect-Azure
 if ($null -ne $targetSubscription) {
     $context = Set-AzContext -Subscription  $targetSubscription -ErrorAction Stop
-}else
+}else {
     $context = Get-AzContext -ErrorAction Stop
 }
 # Check if the resource group exists; if not, create it.
