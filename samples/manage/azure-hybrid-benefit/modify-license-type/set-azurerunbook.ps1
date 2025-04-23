@@ -140,7 +140,7 @@ if ($null -eq $principalId) {
         $roleName = $assignment.RoleName
         Write-Host "Assigning role '$roleName' to Managed Identity '$AutomationAccountName' at scope '$Scope'..." -ForegroundColor Yellow
         try {
-            if(!Get-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName  -Scope $Scope -ErrorAction SilentlyContinue){ 
+            if($null -eq (Get-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName  -Scope $Scope)) {
                 New-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName -Scope "/subscriptions/$($context.Subscription.Id)"   -ErrorAction Stop  | Out-Null
                 Write-Host "Role '$roleName' assigned successfully." -ForegroundColor Green
                 continue
