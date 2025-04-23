@@ -56,6 +56,7 @@ $DebugPreference        = "SilentlyContinue"
 $ProgressPreference     = "SilentlyContinue"
 $InformationPreference  = "SilentlyContinue"
 $WarningPreference      = "SilentlyContinue"
+$context = $null
 # Define role assignments to apply
 $roleAssignments = @(
     @{ RoleName = "SQL DB Contributor"; Description = "For Azure SQL Databases and Azure SQL Elastic Pools" },
@@ -63,8 +64,8 @@ $roleAssignments = @(
     @{ RoleName = "Data Factory Contributor"; Description = "For Azure Data Factory SSIS Integration Runtimes" },
     @{ RoleName = "Virtual Machine Contributor"; Description = "For SQL Servers in Azure Virtual Machines" },
     @{RoleName = "SQL Server Contributor"; Description = "For Elastic-Pools in Azure Virtual Machines"},
-    @{RoleName = "Azure Connected Machine Resource Administrator "; Description = "For SQL Servers in Arc Virtual Machines"},
-    @{RoleName = "Reader "; Description = "For read resources in the subscription"}
+    @{RoleName = "Azure Connected Machine Resource Administrator"; Description = "For SQL Servers in Arc Virtual Machines"},
+    @{RoleName = "Reader"; Description = "For read resources in the subscription"}
 )
 function Connect-Azure {
         try {
@@ -108,7 +109,7 @@ function Connect-Azure {
 # Connect to Azure.
 Write-Output "Connecting to Azure..."
 Connect-Azure
-
+$context = Get-AzContext -ErrorAction SilentlyContinue
 # Check if the resource group exists; if not, create it.
 if (-not (Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction SilentlyContinue)) {
     Write-Output "Creating Resource Group '$ResourceGroupName' in region '$Location'..."
@@ -128,6 +129,7 @@ if ($null -eq $automationAccount) {
 }
 # Assign roles to the Automation Account's system-assigned managed identity.
 $principalId = $automationAccount.Identity.PrincipalId
+$Scope = "/subscriptions/$($context.Subscription.Id)"
 Write-Host $principalId 
 if ($null -eq $principalId) {
     Write-Host "The Automation Account does not have a system-assigned managed identity enabled." -ForegroundColor Yellow
