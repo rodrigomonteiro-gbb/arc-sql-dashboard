@@ -109,11 +109,8 @@ function Connect-Azure {
 # Connect to Azure.
 Write-Output "Connecting to Azure..."
 Connect-Azure
-if ($null -ne $targetSubscription) {
-    $context = Set-AzContext -Subscription  $targetSubscription -ErrorAction Stop
-}else{
-    $context = Get-AzContext -ErrorAction Stop
-}
+
+
 # Check if the resource group exists; if not, create it.
 if (-not (Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction SilentlyContinue)) {
     Write-Output "Creating Resource Group '$ResourceGroupName' in region '$Location'..."
