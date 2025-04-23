@@ -163,7 +163,7 @@ if (-not (Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -Automat
     Import-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
         -Name $RunbookName `
         -ResourceGroupName $ResourceGroupName `
-        -Path $downloadFolder+$RunbookPath `
+        -Path "$($downloadFolder)$($RunbookPath)" `
         -Type $RunbookType `
         -Force `
         -Published `
