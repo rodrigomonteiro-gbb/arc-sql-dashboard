@@ -110,7 +110,7 @@ function Connect-Azure {
 Write-Output "Connecting to Azure..."
 Connect-Azure
 $context = Get-AzContext -ErrorAction Stop
-if ($null -ne $targetSubscription) {
+if ($null -ne $targetSubscription -and $targetSubscription -ne $context.Subscription.Id -and $targetSubscription -ne "") {
     $context = Set-AzContext -Subscription  $targetSubscription -ErrorAction Stop
 }
 
