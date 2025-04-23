@@ -44,6 +44,7 @@ param(
     [Parameter(Mandatory)][string]$Location,
     [Parameter(Mandatory)][string]$RunbookName,
     [Parameter(Mandatory)][string]$RunbookPath,
+    [Parameter()][Hashtable]$RunbookArg,
     [ValidateSet("PowerShell","PowerShell72","PowerShellWorkflow","Graph","Python2","Python3")]
     [string]$RunbookType = "PowerShell72",
     [string]$targetResourceGroup,
