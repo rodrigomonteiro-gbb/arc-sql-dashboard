@@ -199,10 +199,7 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
     Write-Output "Schedule '$ScheduleName' already exists."
 }
 
-# Define sample parameter values to pass to the runbook when scheduled.
-$sampleParameters = @{
-    Force_Start_On_Resources = $True
-}
+
 
 # Link the schedule to the runbook, including the sample parameters.
 Write-Output "Assigning schedule '$ScheduleName' to runbook '$RunbookName' with sample parameters..."
@@ -211,7 +208,7 @@ Register-AzAutomationScheduledRunbook `
     -ResourceGroupName $ResourceGroupName `
     -RunbookName $RunbookName `
     -ScheduleName $ScheduleName `
-    -Parameters $sampleParameters  | Out-Null
+    -Parameters $RunbookArg  | Out-Null
 <#
 Start-AzAutomationRunbook `
     -ResourceGroupName $ResourceGroupName `
