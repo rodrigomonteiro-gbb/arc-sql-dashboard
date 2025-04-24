@@ -84,7 +84,7 @@ $scriptUrls = @{
         }
     }
     Arc   = @{
-        URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1"
+        URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-arc-sql-license-type.ps1"
 
         Args =@{
             LicenseType= "PAYG"
