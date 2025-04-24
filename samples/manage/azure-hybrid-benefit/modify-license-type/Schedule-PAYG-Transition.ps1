@@ -44,16 +44,19 @@ param(
     [string] $UsePcoreLicense="No",
 
     [Parameter(Mandatory=$false)]
-    [string]$targetResourceGroup,
+    [string]$targetResourceGroup=$null,
 
     [Parameter(Mandatory=$false)]
-    [string]$targetSubscription,
+    [string]$targetSubscription=$null,
+
+    [Parameter(Mandatory=$true)]
+    [string]$AutomationAccResourceGroupName,
 
     [Parameter(Mandatory=$false)]
     [string]$AutomationAccountName="aaccAzureArcSQLLicenseType",
 
     [Parameter(Mandatory=$true)]
-    [string]$Location
+    [string]$Location=$null
 )
 $git = "sql-server-samples"
 $environment = "microsoft"
@@ -64,33 +67,31 @@ if($null -ne $env:MYAPP_ENV) {
 # === Configuration ===
 $scriptUrls = @{
     General = @{
-        URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/set-azurerunbook.ps1"
+        URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/set-azurerunbook.ps1"
         Args = @{
-            ResourceGroupName= $ResourceGroupName 
+            ResourceGroupName= "'$($AutomationAccResourceGroupName)'"
             AutomationAccountName= $AutomationAccountName 
             Location= $Location
-            RunbookName= $RunbookName 
-            RunbookPath= $RunbookPath
-            RunbookArg=@{}
             targetResourceGroup= $targetResourceGroup
             targetSubscription= $targetSubscription}
         }
     Azure = @{
-        URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
+        URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
         Args = @{
             Force_Start_On_Resources = $true
-            SubId = $targetSubscription
-            ResourceGroup = $targetResourceGroup
+            SubId = [string]$targetSubscription
+            ResourceGroup = [string]$targetResourceGroup
         }
     }
     Arc   = @{
-        URL = "https://github.com/$($environment)/$($git)/blob/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1"
+        URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-arc-enabled-sql-server/modify-license-type/modify-license-type.ps1"
+
         Args =@{
             LicenseType= "PAYG"
             Force = $true
-            UsePcoreLicense=$UsePcoreLicense
-            SubId = $targetSubscription
-            ResourceGroup = $targetResourceGroup
+            UsePcoreLicense=[string]$UsePcoreLicense
+            SubId = [string]$targetSubscription
+            ResourceGroup = [string]$targetResourceGroup
         }
    }
 }
@@ -120,52 +121,124 @@ function Invoke-RemoteScript {
     Write-Host "Downloading $Url to $dest..."
     Invoke-RestMethod -Uri $Url -OutFile $dest
 
-    Write-Host "Running $dest..."
-    if($Target -eq "Both") {
-        $scriptUrls.General.Args.RunbookArg = $scriptUrls.Arc.Args
-        $scriptUrls.General.Args.RunbookName = "ModifyLicenseTypeArc"
-        $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls.Arc.URL -Leaf
-        & $dest @($scriptUrls.General.Args) -ErrorAction Stop
-       
-        foreach ($arg in $scriptUrls.Arc.Args) {
-            Write-Host "Arc Args: $($arg.Key) = $($arg.Value)"
-        }
- 
-        $scriptUrls.General.Args.RunbookArg = $scriptUrls.Azure.Args
-        $scriptUrls.General.Args.RunbookName = "ModifyLicenseTypeAzure"
-        $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls.Azure.URL -Leaf
-        foreach ($arg in $scriptUrls.Azure.Args) {
-            Write-Host "Azure Args: $($arg.Key) = $($arg.Value)"
-        }
-        & $dest @($scriptUrls.General.Args) -ErrorAction Stope
-    }else
-    {
-        $scriptUrls.General.Args.RunbookArg = $scriptUrls[$Target].Args
-        $scriptUrls.General.Args.RunbookName = "ModifyLicenseType$Target"
-        $scriptUrls.General.Args.RunbookPath = Split-Path $scriptUrls[$Target].URL -Leaf
-        foreach ($arg in $scriptUrls.General.Args) {
-            Write-Host "Gerneral Args: $($arg.Key) = $($arg.Value)"
-        }
+    $scriptname = $dest
+    $wrapper = @()
+    $wrapper += @"
+    `$ResourceGroupName= '$($AutomationAccResourceGroupName)'
+    `$AutomationAccountName= '$AutomationAccountName' 
+    `$Location= '$Location'
+    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "`$targetResourceGroup= '$targetResourceGroup'" })
+    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "`$targetSubscription= '$targetSubscription'" })
+"@
+    if($Target -eq "Both" -or $Target -eq "Arc") {
 
-        # Invoke the script with the specified arguments
-      & $dest @($scriptUrls[$Target].Args) -ErrorAction Stop
+        $supportfileName = Split-Path $scriptUrls.Arc.URL -Leaf
+        $supportdest     = Join-Path $downloadFolder $supportfileName
+        Write-Host "Downloading $($scriptUrls.Arc.URL) to $supportdest..."
+        Invoke-RestMethod -Uri $scriptUrls.Arc.URL -OutFile $supportdest
+
+        $supportfileName = Split-Path $scriptUrls.Azure.URL -Leaf
+        $supportdest     = Join-Path $downloadFolder $supportfileName
+        Write-Host "Downloading $scriptUrls.Azure.URL to $supportdest..."
+        Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
+
+        $nextline = if(($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") -or ($null -ne $targetSubscription -and $targetSubscription -ne "")) {"``"}
+        $nextline2 = if(($null -ne $targetSubscription -and $targetSubscription -ne "")){"``"}
+        $wrapper += @"
+`$RunbookArg =@{
+LicenseType= 'PAYG'
+Force = `$true
+$(if ($null -ne $UsePcoreLicense) { "UsePcoreLicense='$UsePcoreLicense'" } else { "" })
+$(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId='$targetSubscription'" })
+$(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup='$targetResourceGroup'" })
+}
+
+    $scriptname -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeArc' ``
+    -RunbookPath '$(Split-Path $scriptUrls.Arc.URL -Leaf)' ``
+    -RunbookArg `$RunbookArg $($nextline)
+    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
+    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
+
+
+`$RunbookArg =@{
+    Force_Start_On_Resources = `$true
+    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup= '$targetResourceGroup'" })
+    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId= '$targetSubscription'" })
+
+}
+
+$scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
+    -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'`
+    -RunbookArg `$RunbookArg $($nextline)
+    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
+    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
+        
+"@
+
     }
+
+    if($Target -eq "Both" -or $Target -eq "Azure") {
+
+        $supportfileName = Split-Path $scriptUrls.Azure.URL -Leaf
+        $supportdest     = Join-Path $downloadFolder $supportfileName
+        Write-Host "Downloading $($scriptUrls.Azure.URL) to $supportdest..."
+        Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
+
+        $nextline = if(($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") -or ($null -ne $targetSubscription -and $targetSubscription -ne "")) {"``"}
+        $nextline2 = if(($null -ne $targetSubscription -and $targetSubscription -ne "")){"``"}
+        $wrapper += @"
+`$RunbookArg =@{
+    Force_Start_On_Resources = `$true
+    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup= '$targetResourceGroup'" })
+    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId= '$targetSubscription'" })
+
+}
+
+$scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
+    -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'``
+    -RunbookArg `$RunbookArg $($nextline)
+    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
+    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
+        
+"@
+
+    }
+    $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8
+    .\runnow.ps1
 }
 
 # === Single run: download & invoke the appropriate script(s) ===
 if($RunMode -eq "Single") {
-    switch ($Target) {
-        'Azure' {
-            #Invoke-RemoteScript -Url $scriptUrls.Azure.URL -Target $Target -RunMode $RunMode
-        }
-        'Arc' {
-            #Invoke-RemoteScript -Url $scriptUrls.Arc.URL -Target $Target -RunMode $RunMode
-        }
-        'Both' {
-            #Invoke-RemoteScript -Url $scriptUrls.Azure.URL  -Target $Target -RunMode $RunMode
-            #Invoke-RemoteScript -Url $scriptUrls.Arc.URL    -Target $Target -RunMode $RunMode
+    $wrapper = @()
+    if ($Target -eq "Both" -or $Target -eq "Arc") {
+        $fileName = Split-Path $scriptUrls.Arc.URL -Leaf
+        $dest     = Join-Path $downloadFolder $fileName
+
+        
+        $wrapper +="$dest ``" 
+        foreach ($arg in $scriptUrls.Arc.Args.Keys) {
+            if ("" -ne $scriptUrls.Arc.Args[$arg]) {
+                $wrapper+="-$($arg)='$($scriptUrls.Arc.Args[$arg])'"
+            }   
         }
     }
+
+    if ($Target -eq "Both" -or $Target -eq "Azure") {
+        $fileName = Split-Path $scriptUrls.Azure.URL -Leaf
+        $dest     = Join-Path $downloadFolder $fileName
+
+       
+        $wrapper +="$dest ``" 
+        foreach ($arg in $scriptUrls.Azure.Args.Keys) {
+            if ("" -ne $scriptUrls.Azure.Args[$arg]) {
+                $wrapper+="-$($arg)='$($scriptUrls.Azure.Args[$arg])'"
+            }   
+        }
+    }
+
+    $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8 
+    .\runnow.ps1
+
     Write-Host "Single run completed."
 }else{
     Write-Host "Run 'Scheduled'."
