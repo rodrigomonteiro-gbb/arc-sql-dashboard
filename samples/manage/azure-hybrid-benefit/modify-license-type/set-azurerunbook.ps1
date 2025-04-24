@@ -159,6 +159,10 @@ if ($null -eq $principalId) {
 }
 $downloadFolder = './PayTransitionDownloads/'
 # Import the runbook into the Automation Account.
+if ((Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $RunbookName -ErrorAction SilentlyContinue)) {
+    Write-Output "Removing old Runbook '$RunbookName' from Automation Account '$AutomationAccountName'..."
+    Remove-AzAutomationRunbook -AutomationAccountName $AutomationAccountName -Name $RunbookName -ResourceGroupName $ResourceGroupName -Force -ErrorAction SilentlyContinue | Out-Null
+}
 if (-not (Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $RunbookName -ErrorAction SilentlyContinue)) {
     Write-Output "Importing Runbook '$RunbookName' from file '$RunbookPath' into Automation Account '$AutomationAccountName'..."
     Import-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
@@ -170,20 +174,13 @@ if (-not (Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -Automat
         -Published `
         -LogProgress $True   | Out-Null
     }
-else {
-    Write-Output "Runbook '$RunbookName' already exists. It will be updated."
-    Write-Output "Updating Runbook '$RunbookName' from file '$RunbookPath' into Automation Account '$AutomationAccountName'..."
-    Set-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
-    -Name $RunbookName `
-    -ResourceGroupName $ResourceGroupName `
-    -LogProgress $True  | Out-Null
-    Write-Output "Runbook '$RunbookName' has been updated." 
-
-}
 
 
 # Create a daily schedule for the runbook (if it doesn't exist).
 $ScheduleName = "$($RunbookName)_defaultschedule"
+if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
+    Remove-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue -Force | Out-Null
+}
 if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
     Write-Output "Creating schedule '$ScheduleName'..."
     # Set the schedule to start 5 minutes from now and expire in one year, with daily frequency.
@@ -196,14 +193,7 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -DaysOfWeek @([System.DayOfWeek]::Monday..[System.DayOfWeek]::Sunday) `
         -TimeZone 'UTC' `
         -Description 'Default schedule for runbook'   | Out-Null
-} else {
-    Write-Output "Schedule '$ScheduleName' already exists."
-    Set-AzAutomationSchedule `
-        -ResourceGroupName $ResourceGroupName `
-        -AutomationAccountName $AutomationAccountName `
-        -Name $ScheduleName `
-        -IsEnabled $true | Out-Null
-}
+} 
 
 
 # Link the schedule to the runbook, including the sample parameters.
