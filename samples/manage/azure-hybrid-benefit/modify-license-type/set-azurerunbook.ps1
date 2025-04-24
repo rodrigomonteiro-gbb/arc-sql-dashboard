@@ -224,7 +224,7 @@ Start-AzAutomationRunbook `
     -ResourceGroupName $ResourceGroupName `
     -AutomationAccountName $AutomationAccountName `
     -Name $RunbookName `
-    -Parameters $sampleParameters `
-    -ErrorAction SilentlyContinue 
+    -Parameters $RunbookArg `
+    -ErrorAction SilentlyContinue | Out-Null
 
 Write-Output "Runbook '$RunbookName' has been imported and published successfully."
