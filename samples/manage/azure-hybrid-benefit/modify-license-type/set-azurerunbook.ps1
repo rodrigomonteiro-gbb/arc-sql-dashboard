@@ -142,9 +142,10 @@ if ($null -eq $principalId) {
     Write-Host "Automation Account Object ID (PrincipalId): $principalId" -ForegroundColor Green
     foreach ($assignment in $roleAssignments) {
         $roleName = $assignment.RoleName
-        Write-Host "Assigning role '$roleName' to Managed Identity '$AutomationAccountName' at scope '$Scope'..." -ForegroundColor Yellow
+        
         try {
             if($null -eq (Get-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName  -Scope $Scope)) {
+                Write-Host "Assigning role '$roleName' to Managed Identity '$AutomationAccountName' at scope '$Scope'..." -ForegroundColor Yellow
                 New-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName -Scope "/subscriptions/$($context.Subscription.Id)"   -ErrorAction Stop  | Out-Null
                 Write-Host "Role '$roleName' assigned successfully." -ForegroundColor Green
                 continue
@@ -171,7 +172,7 @@ if (-not (Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -Automat
     }
 else {
     Write-Output "Runbook '$RunbookName' already exists. It will be updated."
-    Write-Output "Importing Runbook '$RunbookName' from file '$RunbookPath' into Automation Account '$AutomationAccountName'..."
+    Write-Output "Updating Runbook '$RunbookName' from file '$RunbookPath' into Automation Account '$AutomationAccountName'..."
     Set-AzAutomationRunbook -AutomationAccountName $AutomationAccountName `
     -Name $RunbookName `
     -ResourceGroupName $ResourceGroupName `
@@ -197,8 +198,17 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -Description 'Default schedule for runbook'   | Out-Null
 } else {
     Write-Output "Schedule '$ScheduleName' already exists."
+    Set-AzAutomationSchedule `
+        -ResourceGroupName $ResourceGroupName `
+        -AutomationAccountName $AutomationAccountName `
+        -Name $ScheduleName `
+        -StartTime (Get-Date).AddDays(1)`
+        -WeekInterval 1 `
+        -DaysOfWeek @([System.DayOfWeek]::Monday..[System.DayOfWeek]::Sunday) `
+        -TimeZone 'UTC' `
+        -IsEnabled $true `
+        -Description 'Default schedule for runbook'   | Out-Null
 }
-
 
 
 # Link the schedule to the runbook, including the sample parameters.
@@ -209,12 +219,12 @@ Register-AzAutomationScheduledRunbook `
     -RunbookName $RunbookName `
     -ScheduleName $ScheduleName `
     -Parameters $RunbookArg  | Out-Null
-<#
+
 Start-AzAutomationRunbook `
     -ResourceGroupName $ResourceGroupName `
     -AutomationAccountName $AutomationAccountName `
     -Name $RunbookName `
     -Parameters $sampleParameters `
-    -ErrorAction SilentlyContinue | Out-Null
-#>
+    -ErrorAction SilentlyContinue 
+
 Write-Output "Runbook '$RunbookName' has been imported and published successfully."
