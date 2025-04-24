@@ -202,12 +202,7 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -ResourceGroupName $ResourceGroupName `
         -AutomationAccountName $AutomationAccountName `
         -Name $ScheduleName `
-        -StartTime (Get-Date).AddDays(1)`
-        -WeekInterval 1 `
-        -DaysOfWeek @([System.DayOfWeek]::Monday..[System.DayOfWeek]::Sunday) `
-        -TimeZone 'UTC' `
-        -IsEnabled $true `
-        -Description 'Default schedule for runbook'   | Out-Null
+        -IsEnabled $true | Out-Null
 }
 
 
