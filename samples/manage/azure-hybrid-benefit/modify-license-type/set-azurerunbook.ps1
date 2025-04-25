@@ -120,28 +120,41 @@ function Connect-Azure {
             'Az.ConnectedMachine',
             'Az.ResourceGraph'
         )
-        
+        try {
+            $existing = Get-AzAutomationModule -ResourceGroupName $ResourceGroupName `
+                -AutomationAccountName $AutomationAccountName -Name $mod -ErrorAction SilentlyContinue
+            if ($existing) {
+                Write-Output "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
+                Remove-AzAutomationModule -ResourceGroupName $ResourceGroupName `
+                    -AutomationAccountName $AutomationAccountName -Name $mod -Force
+                    Write-Output "  → Removed '$mod'." -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Warning "Could not check/remove existing module '$mod': $_"
+        }
+
         foreach ($mod in $modules) {
             # Remove existing module from Automation account, if present
             try {
                 $existing = Get-AzAutomationModule -ResourceGroupName $ResourceGroupName `
                     -AutomationAccountName $AutomationAccountName -Name $mod -ErrorAction SilentlyContinue
                 if ($existing) {
-                    Write-Host "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
+                    Write-Output "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
                     Remove-AzAutomationModule -ResourceGroupName $ResourceGroupName `
                         -AutomationAccountName $AutomationAccountName -Name $mod -Force
-                    Write-Host "  → Removed '$mod'." -ForegroundColor Green
+                        Write-Output "  → Removed '$mod'." -ForegroundColor Green
                 }
             }
             catch {
                 Write-Warning "Could not check/remove existing module '$mod': $_"
             }
-               Write-Host "Resolving latest version for module '$mod' from PowerShell Gallery..." -ForegroundColor Yellow
+            Write-Output "Resolving latest version for module '$mod' from PowerShell Gallery..." -ForegroundColor Yellow
             try {
                 $info = Find-Module -Name $mod -Repository PSGallery -ErrorAction Stop
                 $version = $info.Version.ToString()
                 $contentUri = "https://www.powershellgallery.com/api/v2/package/$mod/$version"
-                Write-Host "Importing '$mod' version $version into Automation account..." -ForegroundColor Cyan
+                Write-Output "Importing '$mod' version $version into Automation account..." -ForegroundColor Cyan
                 Import-AzAutomationModule `
                     -ResourceGroupName     $ResourceGroupName `
                     -AutomationAccountName $AutomationAccountName `
@@ -158,14 +171,14 @@ function Connect-Azure {
                     -RuntimeVersion    7.2 `
                     -ErrorAction Stop | Out-Null
         
-                Write-Host "  → Queued '$mod' v$version for import." -ForegroundColor Green
+                Write-Output "  → Queued '$mod' v$version for import." -ForegroundColor Green
             }
             catch {
                 Write-Error "Failed to import module '$mod': $_"
             }
         }
         
-        Write-Host "All specified modules have been queued for import. Check the Automation account in the portal for status." -ForegroundColor Cyan
+        Write-Output "All specified modules have been queued for import. Check the Automation account in the portal for status." -ForegroundColor Cyan
         }
 # Connect to Azure.
 Write-Output "Connecting to Azure..."
@@ -204,20 +217,20 @@ LoadAzModules -SubscriptionId $context.Subscription.Id -ResourceGroupName $Resou
 # Assign roles to the Automation Account's system-assigned managed identity.
 $principalId = $automationAccount.Identity.PrincipalId
 $Scope = "/subscriptions/$($context.Subscription.Id)"
-Write-Host $principalId 
+Write-Output $principalId 
 if ($null -eq $principalId) {
-    Write-Host "The Automation Account does not have a system-assigned managed identity enabled." -ForegroundColor Yellow
+    Write-Output "The Automation Account does not have a system-assigned managed identity enabled." -ForegroundColor Yellow
     exit
 } else {
-    Write-Host "Automation Account Object ID (PrincipalId): $principalId" -ForegroundColor Green
+    Write-Output "Automation Account Object ID (PrincipalId): $principalId" -ForegroundColor Green
     foreach ($assignment in $roleAssignments) {
         $roleName = $assignment.RoleName
         
         try {
             if($null -eq (Get-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName  -Scope $Scope)) {
-                Write-Host "Assigning role '$roleName' to Managed Identity '$AutomationAccountName' at scope '$Scope'..." -ForegroundColor Yellow
+                Write-Output "Assigning role '$roleName' to Managed Identity '$AutomationAccountName' at scope '$Scope'..." -ForegroundColor Yellow
                 New-AzRoleAssignment -ObjectId $principalId -RoleDefinitionName $roleName -Scope "/subscriptions/$($context.Subscription.Id)"   -ErrorAction Stop  | Out-Null
-                Write-Host "Role '$roleName' assigned successfully." -ForegroundColor Green
+                Write-Output "Role '$roleName' assigned successfully." -ForegroundColor Green
                 continue
             }
             
