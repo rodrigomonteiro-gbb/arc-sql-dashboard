@@ -85,7 +85,6 @@ $scriptUrls = @{
     }
     Arc   = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-arc-sql-license-type.ps1"
-
         Args =@{
             LicenseType= "PAYG"
             Force = $true
@@ -158,21 +157,6 @@ $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "Resour
     -RunbookArg `$RunbookArg $($nextline)
     $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
     $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
-
-
-`$RunbookArg =@{
-    Force_Start_On_Resources = `$true
-    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup= '$targetResourceGroup'" })
-    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId= '$targetSubscription'" })
-
-}
-
-$scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
-    -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'`
-    -RunbookArg `$RunbookArg $($nextline)
-    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
-    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
-        
 "@
 
     }
