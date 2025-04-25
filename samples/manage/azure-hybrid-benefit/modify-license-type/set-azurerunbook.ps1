@@ -105,7 +105,68 @@ function Connect-Azure {
             }
         }
     }
-
+    function LoadAzModules {
+        param(
+            [Parameter(Mandatory)][string]$SubscriptionId,
+            [Parameter(Mandatory)][string]$ResourceGroupName,
+            [Parameter(Mandatory)][string]$AutomationAccountName
+        )
+        
+        
+        # List of modules to import from PSGallery
+        $modules = @(
+            'AzureAD',
+            'Az.Accounts',
+            'Az.ConnectedMachine',
+            'Az.ResourceGraph'
+        )
+        
+        foreach ($mod in $modules) {
+            # Remove existing module from Automation account, if present
+            try {
+                $existing = Get-AzAutomationModule -ResourceGroupName $ResourceGroupName `
+                    -AutomationAccountName $AutomationAccountName -Name $mod -ErrorAction SilentlyContinue
+                if ($existing) {
+                    Write-Host "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
+                    Remove-AzAutomationModule -ResourceGroupName $ResourceGroupName `
+                        -AutomationAccountName $AutomationAccountName -Name $mod -Force
+                    Write-Host "  → Removed '$mod'." -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Warning "Could not check/remove existing module '$mod': $_"
+            }
+               Write-Host "Resolving latest version for module '$mod' from PowerShell Gallery..." -ForegroundColor Yellow
+            try {
+                $info = Find-Module -Name $mod -Repository PSGallery -ErrorAction Stop
+                $version = $info.Version.ToString()
+                $contentUri = "https://www.powershellgallery.com/api/v2/package/$mod/$version"
+                Write-Host "Importing '$mod' version $version into Automation account..." -ForegroundColor Cyan
+                Import-AzAutomationModule `
+                    -ResourceGroupName     $ResourceGroupName `
+                    -AutomationAccountName $AutomationAccountName `
+                    -Name                  $mod `
+                    -ContentLinkUri        $contentUri `
+                    -RuntimeVersion    5.1 `
+                    -ErrorAction Stop | Out-Null
+                    
+                    Import-AzAutomationModule `
+                    -ResourceGroupName     $ResourceGroupName `
+                    -AutomationAccountName $AutomationAccountName `
+                    -Name                  $mod `
+                    -ContentLinkUri        $contentUri `
+                    -RuntimeVersion    7.2 `
+                    -ErrorAction Stop | Out-Null
+        
+                Write-Host "  → Queued '$mod' v$version for import." -ForegroundColor Green
+            }
+            catch {
+                Write-Error "Failed to import module '$mod': $_"
+            }
+        }
+        
+        Write-Host "All specified modules have been queued for import. Check the Automation account in the portal for status." -ForegroundColor Cyan
+        }
 # Connect to Azure.
 Write-Output "Connecting to Azure..."
 Connect-Azure
@@ -131,6 +192,15 @@ if ($null -eq $automationAccount) {
 } else {
     Write-Output "Automation Account '$AutomationAccountName' already exists."
 }
+if (-not (Get-AzAutomationModule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name 'Az.ResourceGraph')) {
+    Import-AzAutomationModule `
+    -ResourceGroupName $ResourceGroupName `
+    -AutomationAccountName $AutomationAccountName `
+    -Name 'Az.ResourceGraph' `
+    -ContentLinkUri "https://www.powershellgallery.com/packages/Az.ResourceGraph/1.2.0"
+    -ErrorAction Stop
+}
+LoadAzModules -SubscriptionId $context.Subscription.Id -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName
 # Assign roles to the Automation Account's system-assigned managed identity.
 $principalId = $automationAccount.Identity.PrincipalId
 $Scope = "/subscriptions/$($context.Subscription.Id)"

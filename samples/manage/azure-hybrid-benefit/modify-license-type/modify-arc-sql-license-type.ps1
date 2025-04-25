@@ -43,12 +43,6 @@ param (
     [Parameter (Mandatory= $false)]
     [switch] $Force
 )
-# Suppress unnecessary logging output
-$VerbosePreference      = "SilentlyContinue"
-$DebugPreference        = "SilentlyContinue"
-$ProgressPreference     = "SilentlyContinue"
-$InformationPreference  = "SilentlyContinue"
-$WarningPreference      = "SilentlyContinue"
 function Connect-Azure {
     <#
     .SYNOPSIS
@@ -116,83 +110,38 @@ function Connect-Azure {
         }
     }
 }
-function ConvertTo-Hashtable {
-    [CmdletBinding()]
-    [OutputType('hashtable')]
-    param (
-        [Parameter(ValueFromPipeline)]
-        $InputObject
-    )
-    process {
-        if ($null -eq $InputObject) {
-            return $null
-        }
-        if ($InputObject -is [System.Collections.ICollection]) {
-            $hash = @{}
-            foreach ($property in $InputObject) {
-                $hash[$property.Name] = ConvertTo-Hashtable -InputObject $property.Value
-            }
-            $hash
-        } else {
-            $InputObject
-        }
-    }
-}
-
-function LoadModule {
-    param (
-        [parameter(Mandatory = $true)][string] $name
-    )
-
-    $retVal = $true
-
-    if (!(Get-Module -Name $name)) {
-        $retVal = Get-Module -ListAvailable | Where-Object {$_.Name -eq $name}
-
-        if ($retVal) {
-            try {
-                Import-Module $name -ErrorAction SilentlyContinue
-            }
-            catch {
-                write-host "The request to load module $($name) failed with the following error:"
-                write-host $_.Exception.Message                
-                $retVal = $false
-            }
-        } else {
-            if (Find-Module -Name $name) {
-                Install-Module -Name $name -Force -Verbose -Scope CurrentUser
-                try {
-                    Import-Module $name -ErrorAction SilentlyContinue
-                }
-                catch {
-                    write-host "The request to load module $($name) failed with the following error:"
-                    write-host $_.Exception.Message                
-                    $retVal = $false
-                }
-            } else {
-                write-host "Module $($name) not imported, not available and not in online gallery, exiting."
-                EXIT 1
-            }
-        }
-    }
-
-    return $retVal
-}
 
 # Ensure connection with both PowerShell and CLI.
 Connect-Azure
 $context = Get-AzContext -ErrorAction SilentlyContinue
 Write-Output "Connected to Azure as: $($context.Account)"
 
-$requiredModules = @(
-    "AzureAD",    
-    "Az.Accounts",
-    "Az.ConnectedMachine",
-    "Az.ResourceGraph"
-)
-$requiredModules | Foreach-Object {LoadModule $_}
 
-$tenantID = (Get-AzureADTenantDetail).ObjectId
+try{
+    Import-Module AzureAD -UseWindowsPowerShell
+}
+catch{
+    Write-Output "Can't import module AzureAD"
+}
+try{
+    Import-Module Az.Accounts
+}catch{
+    Write-Output "Can't import module Az.Accounts"
+}
+try{
+    Import-Module Az.ConnectedMachine
+}
+catch{
+    Write-Output "Can't import module Az.ConnectedMachine"
+}
+try{
+    Import-Module Az.ResourceGraph
+}
+catch{
+    Write-Output "Can't import module Az.ResourceGraph"
+}
+
+$tenantID = $context.Tenant.id
 
 if ($SubId -like "*.csv") {
     $subscriptions = Import-Csv $SubId
@@ -231,6 +180,7 @@ foreach ($sub in $subscriptions) {
         }
     }
 
+    Write-Output "Collecting list of resources to update"
     $query = "
     resources
     | where type =~ 'microsoft.hybridcompute/machines/extensions'
@@ -238,8 +188,7 @@ foreach ($sub in $subscriptions) {
     | extend extensionPublisher = tostring(properties.publisher), extensionType = tostring(properties.type), provisioningState = tostring(properties.provisioningState)
     | parse id with * '/providers/Microsoft.HybridCompute/machines/' machineName '/extensions/' *
     | where extensionPublisher =~ 'Microsoft.AzureData'
-    | where provisioningState =~ 'Succeeded'
-    "
+    | where provisioningState =~ 'Succeeded'"
     
     if ($ResourceGroup) {
         $query += "| where resourceGroup =~ '$($ResourceGroup)'"
@@ -252,69 +201,83 @@ foreach ($sub in $subscriptions) {
     $query += "
     | project machineName, extensionName = name, resourceGroup, location, subscriptionId, extensionPublisher, extensionType, properties
     "
-
-    $resources = Search-AzGraph -Query "$($query)"
-    foreach ($r in $resources) {
+    $resources = @(Search-AzGraph -Query "$($query)" -First 1000)
+    Write-Output "Found $($resources.Count) resource(s) to update"
+    $count = $resources.Count
+    while($count -gt 0) {
+        $count-=1
+        Write-Output "VM-$($count)"
+        write-Output "VM - $($resources[$count].MachineName)"
         $setID = @{
-            MachineName = $r.MachineName
-            Name = $r.extensionName
-            ResourceGroup = $r.resourceGroup
-            Location = $r.location
-            SubscriptionId = $r.subscriptionId
-            Publisher = $r.extensionPublisher
-            ExtensionType = $r.extensionType
+            MachineName = $resources[$count].MachineName
+            Name = $resources[$count].extensionName
+            ResourceGroup = $resources[$count].resourceGroup
+            Location = $resources[$count].location
+            SubscriptionId = $resources[$count].subscriptionId
+            Publisher = $resources[$count].extensionPublisher
+            ExtensionType = $resources[$count].extensionType
         }
 
+        write-Output "VM - $($setID.MachineName)"
+        write-Output "   ResourceGroup - $($setID.ResourceGroup)"
+        write-Output "   Location - $($setID.Location)"
+        write-Output "   SubscriptionId - $($setID.SubscriptionId)"
+        write-Output "   ExtensionType - $($setID.ExtensionType)"
+        
         $WriteSettings = $false
         $settings = @{}
-        $settings = $r.properties.settings | ConvertTo-Json | ConvertFrom-Json | ConvertTo-Hashtable
-
+        $settings = $resources[$count].properties.settings | ConvertTo-Json | ConvertFrom-Json
+        $ext = Get-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName
         $LO_Allowed = (!$settings["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
-            
+        
+        
+        write-Output "   LicenseType - $($settings.LicenseType)"
+
         if ($LicenseType) {
             if (($LicenseType -eq "LicenseOnly") -and !$LO_Allowed) {
-                write-host "ESU must be disabled before license type can be set to $($LicenseType)"
+                write-Output "ESU must be disabled before license type can be set to $($LicenseType)"
             } else {
-                if ($settings.ContainsKey("LicenseType")) {
+                if ($ext.Setting["LicenseType"]) {
                     if ($Force) {
-                        $settings["LicenseType"] = $LicenseType
+                        $ext.Setting["LicenseType"] = $LicenseType
                         $WriteSettings = $true
                     }
                 } else {
-                    $settings["LicenseType"] = $LicenseType
+                    $ext.Setting["LicenseType"] = $LicenseType
                     $WriteSettings = $true
                 }
             }
         }
         
         if ($EnableESU) {
-            if (($settings["LicenseType"] | select-string "Paid","PAYG") -or  ($EnableESU -eq "No")) {
-                $settings["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
-                $settings["esuLastUpdatedTimestamp"] = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+            if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($EnableESU -eq "No")) {
+                $ext.Setting["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
+                $ext.Setting["esuLastUpdatedTimestamp"] = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
                 $WriteSettings = $true
             } else {
-                write-host "The configured license type does not support ESUs" 
+                write-Output "The configured license type does not support ESUs" 
             }
         }
         
         if ($UsePcoreLicense) {
-            if (($settings["LicenseType"] | select-string "Paid","PAYG") -or  ($UsePcoreLicense -eq "No")) {
-                $settings["UsePhysicalCoreLicense"] = @{
+            if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($UsePcoreLicense -eq "No")) {
+                $ext.Setting["UsePhysicalCoreLicense"] = @{
                     "IsApplied" = ($UsePcoreLicense -eq "Yes");
                     "LastUpdatedTimestamp" = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
                 }
                 $WriteSettings = $true
             } else {
-                write-host "The configured license type does not support ESUs" 
+                write-Output "The configured license type does not support ESUs" 
             }
         }
+        write-Output "   Write Settings - $($WriteSettings)"
         If ($WriteSettings) {
             try { 
-                Set-AzConnectedMachineExtension @setID -Settings $settings -NoWait | Out-Null
-                Write-Host "Updated -- Resource group: [$($r.resourceGroup)], Connected machine: [$($r.MachineName)]"
+                $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait | Out-Null
+                Write-Output "Updated -- Resource group: [$($resources[$count].resourceGroup)], Connected machine: [$($resources[$count].MachineName)]"
             } catch {
-                write-host "The request to modify the extension object failed with the following error:"
-                write-host $_.Exception.Message
+                write-Output "The request to modify the extension object failed with the following error:"
+                write-Output $_.Exception.Message
                 {continue}
             }
         }
