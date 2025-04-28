@@ -58,7 +58,8 @@ This permission allows the script to:
 | `-Location`                       | Yes      | `String`    | Azure region (e.g. `EastUS`).                                         |
 | `-Time`                           | No       | `String`    | (Scheduled) Time (`h:mmtt`, e.g. `08:00AM`). Default: `8:00AM`.       |
 | `-DayOfWeek`                      | No       | `DayOfWeek` | (Scheduled) Day of week. Default: `Sunday`.                           |
-
+| `-SQLLicenseType`                 | No       | `String`    | SQL license type to be set for the Azure and/or Arc resources.        |
+| `EnableESU`                       | No       | `String`    | Enable Extended Security Updates (ESU) for Arc SQL Server VMs.        |
 ---
 ## Download & Execution
 

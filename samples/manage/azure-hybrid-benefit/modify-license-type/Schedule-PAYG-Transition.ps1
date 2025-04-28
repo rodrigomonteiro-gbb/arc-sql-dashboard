@@ -45,6 +45,19 @@
 .PARAMETER DayOfWeek
     (Scheduled mode) Day of the week on which the Scheduled Task will run. Default: `Sunday`.
 
+.PARAMETER SQLLicenseType
+    (Optional) SQL license type to be set for the Azure and/or Arc resources. Default: `"PAYG"`.
+    Valid values:
+      - `BasePrice` : Use SA.
+      - `LicenseIncluded` : Pay as You Go.
+      - `LicenseOnly` : This is customer with no SA only valid for Arc.
+.PARAMETER EnableESU
+    (Optional) Enable Extended Security Updates (ESU) for Arc SQL Server VMs. Default: `"No"`.
+    Valid values:
+      - `Yes` : Enable ESU.
+      - `No`  : Disable ESU.
+    Note: This parameter is only applicable for Arc SQL Server VMs and is ignored for Azure SQL resources.        
+
 .EXAMPLE
     # Single run for both Arc & Azure, then clean up downloads:
     .\schedule-pay-transition.ps1 `
@@ -107,7 +120,11 @@ param(
 
     [Parameter(Mandatory=$false)]
     [ValidateSet("BasePrice","LicenseIncluded","LicenseOnly", IgnoreCase=$false)]
-    [string]$SQLLicenseType="PAYG"
+    [string]$SQLLicenseType="PAYG",
+    
+    [Parameter (Mandatory= $false)]
+    [ValidateSet("Yes","No", IgnoreCase=$false)]
+    [string] $EnableESU="No"
 )
 $git = "sql-server-samples"
 $environment = "microsoft"
@@ -143,6 +160,7 @@ $scriptUrls = @{
             UsePcoreLicense=[string]$UsePcoreLicense
             SubId = [string]$targetSubscription
             ResourceGroup = [string]$targetResourceGroup
+            EnableESU = $EnableESU
         }
    }
 }
