@@ -275,7 +275,7 @@ if ($null -eq $automationAccount) {
 } else {
     Write-Output "Automation Account '$AutomationAccountName' already exists."
 }
-if (-not (Get-AzAutomationModule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name 'Az.ResourceGraph')) {
+if (-not (Get-AzAutomationModule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name 'Az.ResourceGraph' -ErrorAction SilentlyContinue)) {
     Import-AzAutomationModule `
     -ResourceGroupName $ResourceGroupName `
     -AutomationAccountName $AutomationAccountName `
