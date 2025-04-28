@@ -44,72 +44,63 @@ param (
     [switch] $Force
 )
 function Connect-Azure {
-    <#
-    .SYNOPSIS
-        Connects to Azure using either Managed Identity or interactive user login.
+    [CmdletBinding()]
+    param(
+        [switch]$UseManagedIdentity
+    )
 
-    .DESCRIPTION
-        This function first attempts to authenticate to Azure using a Managed Identity by calling
-        Connect-AzAccount with the -Identity switch. If the Managed Identity login is successful,
-        it then connects the Azure CLI using the --identity option. If any of the Managed Identity
-        login attempts fail, the function falls back to interactive (user) login for both Azure
-        PowerShell and the Azure CLI.
+    # 1) Detect environment
+    $envType = "Local"
+    if ($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'cloud-shell*') {
+        $envType = "CloudShell"
+    }
+    elseif (($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'AzureAutomation*') -or $PSPrivateMetadata.JobId) {
+        $envType = "AzureAutomation"
+    }
+    Write-Verbose "Environment detected: $envType"
 
-    .EXAMPLE
-        PS C:\> Connect-Azure
-        Attempts to connect using Managed Identity; if not available, it will prompt for interactive login.
-    #>
-
-    # Variable to track if Managed Identity authentication was successful.
-    $ManagedIdentityLoginSuccessful = $false
-
-    Write-Output "Attempting to connect using Managed Identity for Azure PowerShell..."
+    # 2) Ensure Az.PowerShell context
     try {
-        Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
-        Write-Output "Azure PowerShell connected using Managed Identity."
-        $ManagedIdentityLoginSuccessful = $true
+        $ctx = Get-AzContext -ErrorAction Stop
+        if (-not $ctx.Account) { throw }
+        Write-Output "Already connected to Azure PowerShell as: $($ctx.Account)"
     }
     catch {
-        Write-Output "Managed Identity login failed for Azure PowerShell. Falling back to interactive login..."
-        try {
+        Write-Output "Not connected to Azure PowerShell. Running Connect-AzAccount..."
+        if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+            Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
+        }
+        else {
             Connect-AzAccount -ErrorAction Stop | Out-Null
-            Write-Output "Azure PowerShell connected using interactive login."
         }
-        catch {
-            Write-Error "Failed to connect to Azure PowerShell: $_"
-            return
-        }
+        $ctx = Get-AzContext
+        Write-Output "Connected to Azure PowerShell as: $($ctx.Account)"
     }
 
-    # Attempt Azure CLI connection.
-    if ($ManagedIdentityLoginSuccessful) {
-        Write-Output "Attempting to connect Azure CLI using Managed Identity..."
-        try {
-            az login --identity --output none
-            Write-Output "Azure CLI connected using Managed Identity."
-        }
-        catch {
-            Write-Output "Managed Identity login failed for Azure CLI. Falling back to interactive login..."
-            try {
-                az login --output none
-                Write-Output "Azure CLI connected using interactive login."
-            }
-            catch {
-                Write-Error "Failed to connect to Azure CLI interactively: $_"
-            }
-        }
+    # 3) (Optional) adjust for Cloud Shell
+    if ($envType -eq 'CloudShell') {
+        Write-Verbose "Switching to clouddrive"
+        Set-Location "$HOME\clouddrive"
     }
-    else {
-        Write-Output "Attempting to connect Azure CLI using interactive login..."
+
+    # 4) Sync Azure CLI if available
+    if (Get-Command az -ErrorAction SilentlyContinue) {
         try {
-            az login --output none
-            Write-Output "Azure CLI connected using interactive login."
+            $acct = az account show --output json | ConvertFrom-Json
+            Write-Output "Azure CLI logged in as: $($acct.user.name)"
         }
         catch {
-            Write-Error "Failed to connect to Azure CLI interactively: $_"
+            Write-Output "Azure CLI not logged in. Running az login..."
+            if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+                az login --identity | Out-Null
+            }
+            else {
+                az login | Out-Null
+            }
         }
     }
 }
+
 
 # Ensure connection with both PowerShell and CLI.
 Connect-Azure

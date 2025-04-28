@@ -118,43 +118,63 @@ $roleAssignments = @(
     @{RoleName = "Reader"; Description = "For read resources in the subscription"}
 )
 function Connect-Azure {
+    [CmdletBinding()]
+    param(
+        [switch]$UseManagedIdentity
+    )
+
+    # 1) Detect environment
+    $envType = "Local"
+    if ($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'cloud-shell*') {
+        $envType = "CloudShell"
+    }
+    elseif (($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'AzureAutomation*') -or $PSPrivateMetadata.JobId) {
+        $envType = "AzureAutomation"
+    }
+    Write-Verbose "Environment detected: $envType"
+
+    # 2) Ensure Az.PowerShell context
+    try {
+        $ctx = Get-AzContext -ErrorAction Stop
+        if (-not $ctx.Account) { throw }
+        Write-Output "Already connected to Azure PowerShell as: $($ctx.Account)"
+    }
+    catch {
+        Write-Output "Not connected to Azure PowerShell. Running Connect-AzAccount..."
+        if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+            Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
+        }
+        else {
+            Connect-AzAccount -ErrorAction Stop | Out-Null
+        }
+        $ctx = Get-AzContext
+        Write-Output "Connected to Azure PowerShell as: $($ctx.Account)"
+    }
+
+    # 3) (Optional) adjust for Cloud Shell
+    if ($envType -eq 'CloudShell') {
+        Write-Verbose "Switching to clouddrive"
+        Set-Location "$HOME\clouddrive"
+    }
+
+    # 4) Sync Azure CLI if available
+    if (Get-Command az -ErrorAction SilentlyContinue) {
         try {
-            Write-Output "Testing if it is connected to Azure."
-            # Attempt to retrieve the current Azure context
-            $context = Get-AzContext -ErrorAction SilentlyContinue
-    
-            if ($null -eq $context -or $null -eq $context.Account) {
-                Write-Output "Not connected to Azure. Executing Connect-AzAccount..."
-                if($UseManageIdentity){
-                    Connect-AzAccount -Identity -ErrorAction Stop  | Out-Null
-                } else {
-                    Connect-AzAccount -ErrorAction Stop  | Out-Null
-                }
-                $context = Get-AzContext
-                Write-Output "Connected to Azure as: $($context.Account)"
-            }
-            else {
-                Write-Output "Already connected to Azure as: $($context.Account)"
-            }
+            $acct = az account show --output json | ConvertFrom-Json
+            Write-Output "Azure CLI logged in as: $($acct.user.name)"
         }
         catch {
-            Write-Error "An error occurred while testing the Azure connection: $_"
-        }
-        # Ensure the user is logged in to Azure
-        try {
-            $account = az account show 2>$null | ConvertFrom-Json
-            if ($account) {
-                Write-Output "Logged in as: $($account.user.name)"
+            Write-Output "Azure CLI not logged in. Running az login..."
+            if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+                az login --identity | Out-Null
             }
-        } catch {
-            Write-Output "Not logged in. Run 'az login'."
-            if($UseManageIdentity){
-                az login --Identity  | Out-Null
-            } else {    
-                az login  | Out-Null
+            else {
+                az login | Out-Null
             }
         }
     }
+}
+
     function LoadAzModules {
         param(
             [Parameter(Mandatory)][string]$SubscriptionId,
