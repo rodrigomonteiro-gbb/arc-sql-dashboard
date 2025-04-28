@@ -194,10 +194,10 @@ function Connect-Azure {
             $existing = Get-AzAutomationModule -ResourceGroupName $ResourceGroupName `
                 -AutomationAccountName $AutomationAccountName -Name $mod -ErrorAction SilentlyContinue
             if ($existing) {
-                Write-Output "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
+                Write-Output "Removing existing Automation module '$mod'..."
                 Remove-AzAutomationModule -ResourceGroupName $ResourceGroupName `
                     -AutomationAccountName $AutomationAccountName -Name $mod -Force
-                    Write-Output "  → Removed '$mod'." -ForegroundColor Green
+                    Write-Output "  → Removed '$mod'."
             }
         }
         catch {
@@ -210,21 +210,21 @@ function Connect-Azure {
                 $existing = Get-AzAutomationModule -ResourceGroupName $ResourceGroupName `
                     -AutomationAccountName $AutomationAccountName -Name $mod -ErrorAction SilentlyContinue
                 if ($existing) {
-                    Write-Output "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
+                    Write-Output "Removing existing Automation module '$mod'..."
                     Remove-AzAutomationModule -ResourceGroupName $ResourceGroupName `
                         -AutomationAccountName $AutomationAccountName -Name $mod -Force -ErrorAction SilentlyContinue
-                        Write-Output "  → Removed '$mod'." -ForegroundColor Green
+                        Write-Output "  → Removed '$mod'."
                 }
             }
             catch {
                 Write-Warning "Could not check/remove existing module '$mod': $_"
             }
-            Write-Output "Resolving latest version for module '$mod' from PowerShell Gallery..." -ForegroundColor Yellow
+            Write-Output "Resolving latest version for module '$mod' from PowerShell Gallery..."
             try {
                 $info = Find-Module -Name $mod -Repository PSGallery -ErrorAction Stop
                 $version = $info.Version.ToString()
                 $contentUri = "https://www.powershellgallery.com/api/v2/package/$mod/$version"
-                Write-Output "Importing '$mod' version $version into Automation account..." -ForegroundColor Cyan
+                Write-Output "Importing '$mod' version $version into Automation account..." 
                 Import-AzAutomationModule `
                     -ResourceGroupName     $ResourceGroupName `
                     -AutomationAccountName $AutomationAccountName `
@@ -241,14 +241,14 @@ function Connect-Azure {
                     -RuntimeVersion    7.2 `
                     -ErrorAction Stop | Out-Null
         
-                Write-Output "  → Queued '$mod' v$version for import." -ForegroundColor Green
+                Write-Output "  → Queued '$mod' v$version for import." 
             }
             catch {
                 Write-Error "Failed to import module '$mod': $_"
             }
         }
         
-        Write-Output "All specified modules have been queued for import. Check the Automation account in the portal for status." -ForegroundColor Cyan
+        Write-Output "All specified modules have been queued for import. Check the Automation account in the portal for status." 
         }
 # Connect to Azure.
 Write-Output "Connecting to Azure..."
@@ -281,7 +281,7 @@ if (-not (Get-AzAutomationModule -ResourceGroupName $ResourceGroupName -Automati
     -AutomationAccountName $AutomationAccountName `
     -Name 'Az.ResourceGraph' `
     -ContentLinkUri "https://www.powershellgallery.com/packages/Az.ResourceGraph/1.2.0"
-    -ErrorAction Stop
+    
 }
 LoadAzModules -SubscriptionId $context.Subscription.Id -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName
 # Assign roles to the Automation Account's system-assigned managed identity.
@@ -289,10 +289,10 @@ $principalId = $automationAccount.Identity.PrincipalId
 $Scope = "/subscriptions/$($context.Subscription.Id)"
 Write-Output $principalId 
 if ($null -eq $principalId) {
-    Write-Output "The Automation Account does not have a system-assigned managed identity enabled." -ForegroundColor Yellow
+    Write-Output "The Automation Account does not have a system-assigned managed identity enabled."
     exit
 } else {
-    Write-Output "Automation Account Object ID (PrincipalId): $principalId" -ForegroundColor Green
+    Write-Output "Automation Account Object ID (PrincipalId): $principalId"
     foreach ($assignment in $roleAssignments) {
         $roleName = $assignment.RoleName
         
@@ -336,19 +336,19 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
 }
 if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
     Write-Output "Creating schedule '$ScheduleName'..."
-    $StartTime = (Get-Date $Time).AddDays(1)
     # Set the schedule to start 5 minutes from now and expire in one year, with daily frequency.
+    
+
     New-AzAutomationSchedule `
         -ResourceGroupName $ResourceGroupName `
         -AutomationAccountName $AutomationAccountName `
         -Name $ScheduleName `
         -WeekInterval 1 `
         -DaysOfWeek @($DayOfWeek) `
-        -StartTime $StartTime `
-        -TimeZone $TimeZone `
+        -StartTime $Time.AddHours(25)`
+        -TimeZone "EST" `
         -Description 'Default schedule for runbook'   | Out-Null
 } 
-
 
 # Link the schedule to the runbook, including the sample parameters.
 Write-Output "Assigning schedule '$ScheduleName' to runbook '$RunbookName' with sample parameters..."
