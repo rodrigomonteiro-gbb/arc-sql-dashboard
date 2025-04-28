@@ -80,7 +80,7 @@ Invoke-RestMethod `
 .\schedule-pay-transition.ps1 `
   -Target Both `
   -RunMode Single `
-  -cleanDownloads:$true `
+  -cleanDownloads $true `
   -UsePcoreLicense No `
   -targetSubscription 00000000-0000-0000-0000-000000000000 `
   -targetResourceGroup MyRG `
