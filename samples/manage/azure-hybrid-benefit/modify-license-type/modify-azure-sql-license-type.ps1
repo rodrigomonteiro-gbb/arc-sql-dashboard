@@ -52,7 +52,7 @@ param (
     [string] $LicenseType = "LicenseIncluded",
     
     [Parameter(Mandatory = $false)]
-    [switch] $Force_Start_On_Resources = $false
+    [switch] $Force_Start_On_Resources
 )
 
 # Suppress unnecessary logging output
