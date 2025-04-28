@@ -132,7 +132,7 @@ $scriptUrls = @{
             Force_Start_On_Resources = $true
             SubId = [string]$targetSubscription
             ResourceGroup = [string]$targetResourceGroup
-            LicenseType= $SQLLicenseType
+            LicenseType= $SQLLicenseType -eq "LicenseOnly" ? "BasePrice" : $SQLLicenseType
         }
     }
     Arc   = @{
