@@ -1,42 +1,86 @@
 <#
 .SYNOPSIS
-    Creates or uses an Azure Automation account and imports a runbook.
+    Creates or uses an Azure Automation account, imports and publishes a runbook, and optionally schedules it.
 
 .DESCRIPTION
-    This script:
-      - Connects to Azure (PowerShell + CLI).
-      - Creates the resource group if it doesn't exist.
-      - Creates the Automation account (with system identity) if it doesn't exist.
-      - Assigns a set of built‑in roles to that managed identity.
-      - Imports or updates the specified runbook, publishes it.
-      - Creates a daily schedule (if missing) and links it to the runbook.
-      - Starts a one‑off job of the runbook.
+    This script will:
+      - Authenticate to Azure (PowerShell + CLI).
+      - Create the specified resource group if it doesn't exist.
+      - Create or reuse an Automation account (with system-assigned identity).
+      - Import or update the AzureAD, Az.* modules into that Automation account.
+      - Assign built-in roles to the Automation account’s managed identity.
+      - Remove any existing copy of the specified runbook, then import & publish the new runbook.
+      - Create or update a daily schedule (at your chosen time/day) and link it to the runbook.
+      - Start a one-off run of the runbook.
 
 .PARAMETER ResourceGroupName
-    The resource group in which to create/use the Automation account.
+    The name of the resource group for the Automation account.
 
 .PARAMETER AutomationAccountName
-    The Automation account name.
+    The name of the Azure Automation account.
 
 .PARAMETER Location
-    Azure region for the RG and account (e.g. "EastUS").
+    Azure region (e.g. "EastUS") for the resource group and Automation account.
 
 .PARAMETER RunbookName
-    The name under which to import/publish the runbook.
+    The name under which to import and publish the runbook.
 
 .PARAMETER RunbookPath
-    Full path to the local .ps1 runbook file.
+    The local path (relative to ./PayTransitionDownloads/) to the runbook .ps1 file.
+
+.PARAMETER RunbookArg
+    A hashtable of parameters to pass into the runbook when scheduling or starting it.
 
 .PARAMETER RunbookType
-    Runbook type: "PowerShell", "PowerShell72", "PowerShellWorkflow", "Graph", "Python2", or "Python3".
-    Default: "PowerShell72".
+    The runbook type: "PowerShell", "PowerShell72", "PowerShellWorkflow", "Graph", "Python2", or "Python3".
+    Default is "PowerShell72".
 
 .PARAMETER targetResourceGroup
-    (Optional) Resource group passed into the runbook as a parameter.
+    Optional. A resource group name to pass into the runbook as a parameter.
 
 .PARAMETER targetSubscription
-    (Optional) Subscription ID passed into the runbook as a parameter.
+    Optional. A subscription ID to pass into the runbook as a parameter.
+
+.PARAMETER Time
+    Scheduled run time in "H:mm" 24-hour format (e.g. "08:00" for 8 AM). Default is "8:00".
+
+.PARAMETER TimeZone
+    Time zone for the scheduled trigger (e.g. "UTC" or "Pacific Standard Time"). Default is "UTC".
+
+.PARAMETER DayOfWeek
+    Day of week for the scheduled trigger. Default is Sunday.
+
+.EXAMPLE
+    # One-off import & run, passing target RG/Subscription, then clean up downloads:
+    .\ThisScript.ps1 `
+       -ResourceGroupName "AutoRG" `
+       -AutomationAccountName "MyAutoAcct" `
+       -Location "EastUS" `
+       -RunbookName "MyRunbook" `
+       -RunbookPath "MyRunbook.ps1" `
+       -RunbookType "PowerShell72" `
+       -targetResourceGroup "AppRG" `
+       -targetSubscription "00000000-0000-0000-0000-000000000000" `
+       -Time "08:00" `
+       -TimeZone "UTC" `
+       -DayOfWeek Monday
+
+.EXAMPLE
+    # Schedule daily execution at 2 AM Wednesday:
+    .\ThisScript.ps1 `
+       -ResourceGroupName "AutoRG" `
+       -AutomationAccountName "MyAutoAcct" `
+       -Location "EastUS" `
+       -RunbookName "MyRunbook" `
+       -RunbookPath "MyRunbook.ps1" `
+       -RunbookType "PowerShell72" `
+       -RunbookArg @{ Foo="Bar"; Baz=42 } `
+       -RunMode Scheduled `
+       -Time "02:00" `
+       -TimeZone "Pacific Standard Time" `
+       -DayOfWeek Wednesday
 #>
+
 
 param(
     [Parameter(Mandatory)][string]$ResourceGroupName,
@@ -48,7 +92,13 @@ param(
     [ValidateSet("PowerShell","PowerShell72","PowerShellWorkflow","Graph","Python2","Python3")]
     [string]$RunbookType = "PowerShell72",
     [string]$targetResourceGroup,
-    [string]$targetSubscription
+    [string]$targetSubscription,
+    [Parameter(Mandatory=$false)]
+    [System.DateTimeOffset]$Time="8:00",
+    [Parameter(Mandatory=$false)]
+    [string]$TimeZone="UTC",
+    [Parameter(Mandatory=$false)]
+    [System.DayOfWeek] $DayOfWeek=[System.DayOfWeek]::Sunday
 )
 # Suppress unnecessary logging output
 $VerbosePreference      = "SilentlyContinue"
@@ -273,8 +323,9 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -Name $ScheduleName `
         -StartTime (Get-Date).AddDays(1)`
         -WeekInterval 1 `
-        -DaysOfWeek @([System.DayOfWeek]::Monday..[System.DayOfWeek]::Sunday) `
-        -TimeZone 'UTC' `
+        -DaysOfWeek @($DayOfWeek) `
+        -StartTime $Time `
+        -TimeZone $TimeZone `
         -Description 'Default schedule for runbook'   | Out-Null
 } 
 

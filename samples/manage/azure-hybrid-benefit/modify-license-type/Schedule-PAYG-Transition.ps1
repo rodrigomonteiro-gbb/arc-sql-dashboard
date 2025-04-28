@@ -3,28 +3,70 @@
     Schedules or executes pay-transition operations for Azure and/or Arc.
 
 .DESCRIPTION
-    Depending on parameters, this script either:
-      - Downloads and runs the Azure and/or Arc pay-transition scripts once, or
-      - Registers a Windows Scheduled Task to invoke itself daily at 2 AM.
+    Depending on parameters, this script can either:
+      - **Single** run: Download and invoke Azure and/or Arc pay-transition scripts immediately, then exit (and optionally clean up).
+      - **Scheduled** run: Create or update a Windows Scheduled Task to invoke itself daily at a specified time and day.
 
 .PARAMETER Target
     Which environment(s) to process:
-      - Arc
-      - Azure
-      - Both
+      - `Arc`   : Run the Arc pay-transition.
+      - `Azure` : Run the Azure pay-transition.
+      - `Both`  : Run Arc then Azure in sequence.
 
 .PARAMETER RunMode
-    Whether to run immediately or schedule recurring runs:
-      - Single     : Download & invoke once, then exit.
-      - Scheduled  : Create or update the scheduled task calling this script daily.
+    Execution mode:
+      - `Single`    : Download & invoke once, then exit.
+      - `Scheduled` : Register/update the Scheduled Task and exit.
+
+.PARAMETER cleanDownloads
+    Switch. If set (`$true`) in **Single** mode, deletes the temporary download folder when done. Default: `$false`.
+
+.PARAMETER UsePcoreLicense
+    For **Arc** only. `"Yes"` or `"No"` to control PCore licensing behavior passed to the Arc runbook. Default: `"No"`.
+
+.PARAMETER targetResourceGroup
+    (Optional) Name of the target resource group passed into the downstream runbook scripts.
+
+.PARAMETER targetSubscription
+    (Optional) Subscription ID passed into the downstream runbook scripts.
+
+.PARAMETER AutomationAccResourceGroupName
+    Name of the **resource group** that contains the Automation Account used for importing/runbook operations. **Required**.
+
+.PARAMETER AutomationAccountName
+    Name of the **Automation Account** for importing/publishing the helper runbook. Default: `"aaccAzureArcSQLLicenseType"`.
+
+.PARAMETER Location
+    Azure region (e.g. `"EastUS"`) used for the Automation Account and runbook operations. **Required**.
+
+.PARAMETER Time
+    (Scheduled mode) Daily run time for the Scheduled Task in `"h:mmtt"` format (e.g. `"8:00AM"`). Default: `"8:00AM"`.
+
+.PARAMETER DayOfWeek
+    (Scheduled mode) Day of the week on which the Scheduled Task will run. Default: `Sunday`.
 
 .EXAMPLE
-    # Run immediately for both Azure and Arc
-    .\schedule-pay-transition.ps1 -Target Both -RunMode Single
+    # Single run for both Arc & Azure, then clean up downloads:
+    .\schedule-pay-transition.ps1 `
+      -Target Both `
+      -RunMode Single `
+      -cleanDownloads:$true `
+      -UsePcoreLicense No `
+      -targetSubscription "00000000-0000-0000-0000-000000000000" `
+      -targetResourceGroup "MyRG" `
+      -AutomationAccResourceGroupName "MyAutoRG" `
+      -AutomationAccountName "MyAutoAcct" `
+      -Location "EastUS"
 
 .EXAMPLE
-    # Schedule daily runs for Azure only
-    .\schedule-pay-transition.ps1 -Target Azure -RunMode Scheduled
+    # Schedule daily at 8 AM every Sunday for Azure only:
+    .\schedule-pay-transition.ps1 `
+      -Target Azure `
+      -RunMode Scheduled `
+      -AutomationAccResourceGroupName "MyAutoRG" `
+      -Location "EastUS" `
+      -Time "8:00AM" `
+      -DayOfWeek Sunday
 #>
 
 param(
@@ -56,7 +98,12 @@ param(
     [string]$AutomationAccountName="aaccAzureArcSQLLicenseType",
 
     [Parameter(Mandatory=$true)]
-    [string]$Location=$null
+    [string]$Location=$null,
+
+    [Parameter(Mandatory=$false)]
+    [string]$Time="8:00AM",
+    [Parameter(Mandatory=$false)]
+    [System.DayOfWeek] $DayOfWeek=[System.DayOfWeek]::Sunday
 )
 $git = "sql-server-samples"
 $environment = "microsoft"

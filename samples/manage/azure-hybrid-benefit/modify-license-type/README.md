@@ -1,118 +1,154 @@
-# Schedule pay Transition
+# schedule-pay-transition.ps1
 
 ## Overview
 
-**schedule-pay-transition.ps1** is a PowerShell script that either:
+`schedule-pay-transition.ps1` automates the process of applying pay-transition licensing for Azure and Azure Arc–connected SQL resources. It supports two modes:
 
-- **Runs once**: Downloads and invokes environment‑specific “pay transition” scripts for Azure, Arc, or both.
-- **Schedules itself**: Registers a Windows Scheduled Task to run daily at 2 AM, invoking itself in “Single” mode.
+- **Single**: Download and invoke the Azure and/or Arc pay-transition scripts immediately, then optionally clean up the downloads.
+- **Scheduled**: Register or update a task (Windows Scheduled Task or Automation schedule) to run daily at a specified time and day.
 
-It supports optional cleanup of downloaded files and passing extra parameters (target resource group, subscription, etc.) to the downstream scripts.
+By centralizing these steps, you ensure consistent licensing across your estate with minimal manual effort.
 
 ---
 
-## Prerequisites
+## Permissions
 
-- **PowerShell 5+.**
-- **User running needs to be Azure Subscription owner or contributor to be able to run the script.**  
+The account or service principal running this script must have at least the **Contributor** role (or **Owner**) on the target subscription. This permission allows the script to:
 
+- Create resource groups and Automation accounts
+- Assign roles to the managed identity
+- Import modules into the Automation account
+- Import, publish, and run the runbook
+- Configure and link schedules to the runbook
+
+---
+
+## Download & Execution
+
+You can fetch and run the script locally or in Azure Cloud Shell. Below are examples using both PowerShell cmdlets and `curl`.
+
+### From Local PowerShell (Windows or PowerShell 7)
+
+**Using PowerShell**:
+
+```powershell
+# Download
+authentication required
+download completed
+# Execute (Single run)
+.\schedule-pay-transition.ps1 \
+  -Target Both \
+  -RunMode Single \
+  -cleanDownloads:$true \
+  -UsePcoreLicense No \
+  -targetSubscription 00000000-0000-0000-0000-000000000000 \
+  -targetResourceGroup MyRG \
+  -AutomationAccResourceGroupName MyAutoRG \
+  -AutomationAccountName MyAutoAcct \
+  -Location EastUS
+```
+
+**Using curl**:
+
+```powershell
+# Download
+curl.exe -L \
+  https://raw.githubusercontent.com/<your-org>/<your-repo>/master/schedule-pay-transition.ps1 \
+  -o schedule-pay-transition.ps1
+
+# Execute
+pwsh.exe .\schedule-pay-transition.ps1 \
+  -Target Azure \
+  -RunMode Scheduled \
+  -AutomationAccResourceGroupName MyAutoRG \
+  -Location EastUS \
+  -Time 08:00AM \
+  -DayOfWeek Sunday
+```
+
+### From Azure Cloud Shell (Bash or PowerShell)
+
+**Bash + curl + PowerShell**:
+
+```bash
+# Download
+curl -sL https://raw.githubusercontent.com/<your-org>/<your-repo>/master/schedule-pay-transition.ps1 -o schedule-pay-transition.ps1
+
+# Execute in PowerShell Core
+pwsh schedule-pay-transition.ps1 \
+  -Target Both \
+  -RunMode Single \
+  -cleanDownloads \
+  -AutomationAccResourceGroupName MyAutoRG \
+  -Location EastUS
+```
+
+**PowerShell in Cloud Shell**:
+
+```powershell
+# Download
+Invoke-RestMethod \
+  -Uri https://raw.githubusercontent.com/<your-org>/<your-repo>/master/schedule-pay-transition.ps1 \
+  -OutFile schedule-pay-transition.ps1
+
+# Execute
+.\schedule-pay-transition.ps1 \
+  -Target Azure \
+  -RunMode Scheduled \
+  -AutomationAccResourceGroupName MyAutoRG \
+  -Location EastUS \
+  -Time 02:00AM \
+  -DayOfWeek Wednesday
+```
 
 ---
 
 ## Parameters
 
-| Name                   | Mandatory | Type    | Acceptable Values        | Description                                                                                  |
-|------------------------|-----------|---------|--------------------------|----------------------------------------------------------------------------------------------|
-| `-Target`              | Yes       | String  | `Arc`, `Azure`, `Both`   | Which environment(s) to process.                                                             |
-| `-RunMode`             | Yes       | String  | `Single`, `Scheduled`    | `Single` runs immediately; `Scheduled` registers an NT Task to run daily at 2 AM.            |
-| `-cleanDownloads`      | No        | Boolean |                          | If `$true`, deletes the download folder after a single run.                                  |
-| `-UsePcoreLicense`     | No        | String  | `Yes`, `No`              | Passed to Arc script to control PCore licensing behavior (defaults to `No`).                  |
-| `-targetResourceGroup` | No        | String  |                          | Subscription resource group to target in downstream scripts.                                 |
-| `-targetSubscription`  | No        | String  |                          | Subscription ID to target in downstream scripts.                                             |
-| `-AutomationAccountName` | No      | String  |                          | Automation Account name for the “General” runbook import operation.                          |
-| `-Location`            | No        | String  |                          | Azure region for the “General” runbook import operation.                                     |
-
----
-
-## How It Works
-
-1. **Script URL Configuration**  
-   - **General**: points to `set-azurerunbook.ps1` (imports & publishes the helper runbook).  
-   - **Azure**: points to `modify-azure-sql-license-type.ps1`.  
-   - **Arc**: points to `modify-license-type.ps1` for Arc‑enabled SQL.
-
-2. **Download Folder**  
-   - Creates `.\PayTransitionDownloads\` (relative) if missing.  
-   - Downloads chosen script(s) into it.
-
-3. **Invoke-RemoteScript**  
-   - Downloads a script via `Invoke-RestMethod`.  
-   - Invokes it with splatted parameter hashtable derived from `$scriptUrls[...] .Args`.
-
-4. **Modes**  
-   - **Single**: Invokes the selected scripts immediately and (optionally) cleans up.  
-   - **Scheduled**: Registers or updates a Scheduled Task (run as SYSTEM) to call itself every day at 2 AM with `-RunMode Single`.
-
-5. **Cleanup**  
-   - If `-cleanDownloads $true`, removes the download folder after a single run.
+| Parameter                         | Required | Type        | Description                                                           |
+| --------------------------------- | :------: | ----------- | --------------------------------------------------------------------- |
+| `-Target`                         | Yes      | `String`    | `Arc`, `Azure`, or `Both`—which pay-transition to run.                |
+| `-RunMode`                        | Yes      | `String`    | `Single` or `Scheduled`.                                              |
+| `-cleanDownloads`                 | No       | `Switch`    | If specified in `Single` mode, deletes the download folder afterward. |
+| `-UsePcoreLicense`                | No       | `String`    | (`Arc` only) `Yes` or `No` for PCore licensing. Default: `No`.        |
+| `-targetResourceGroup`            | No       | `String`    | Target resource group for the downstream runbook.                     |
+| `-targetSubscription`             | No       | `String`    | Target subscription ID for the downstream runbook.                    |
+| `-AutomationAccResourceGroupName` | Yes      | `String`    | Resource group containing the Automation account.                     |
+| `-AutomationAccountName`          | No       | `String`    | Automation account name. Default: `aaccAzureArcSQLLicenseType`.       |
+| `-Location`                       | Yes      | `String`    | Azure region (e.g. `EastUS`).                                         |
+| `-Time`                           | No       | `String`    | (Scheduled) Time (`h:mmtt`, e.g. `08:00AM`). Default: `8:00AM`.       |
+| `-DayOfWeek`                      | No       | `DayOfWeek` | (Scheduled) Day of week. Default: `Sunday`.                           |
 
 ---
 
 ## Examples
 
-### Run Immediately
-#### Both Environments
+### Single Run (Arc + Azure) with Cleanup
 
 ```powershell
-.\schedule-pay-transition.ps1 -Target Both -RunMode Single -cleanDownloads $true `
-    -UsePcoreLicense Yes `
-    -targetSubscription "00000000-0000-0000-0000-000000000000" `
-    -targetResourceGroup "MyRG" `
-    -AutomationAccountName "MyAutoAcct" `
-    -Location "EastUS"
-````
-
-### Arc Only, Single Run, With Cleanup
-```powershell
-.\schedule-pay-transition.ps1 `
-  -Target Arc `
-  -RunMode Single `
-  -cleanDownloads $true `
-  -UsePcoreLicense Yes `
-  -targetSubscription "11111111-1111-1111-1111-111111111111" `
-  -targetResourceGroup "ArcRG"
-````
-
-### Both Azure & Arc, Single Run, Full Parameters
-```powershell
-.\schedule-pay-transition.ps1 `
-  -Target Both `
-  -RunMode Single `
-  -cleanDownloads $true `
-  -UsePcoreLicense No `
-  -targetSubscription "22222222-2222-2222-2222-222222222222" `
-  -targetResourceGroup "HybridRG" `
-  -AutomationAccountName "MyAutomationAccount" `
-  -Location "EastUS"
-```
-### Scheduled-Run Scenarios
-
-#### Schedule Daily for Azure Only
-```powershell
-.\schedule-pay-transition.ps1 `
-  -Target Azure `
-  -RunMode Scheduled
-```
-#### Schedule Daily for Arc Only
-```powershell
-.\schedule-pay-transition.ps1 `
-  -Target Arc `
-  -RunMode Scheduled
+.\schedule-pay-transition.ps1 \
+  -Target Both \
+  -RunMode Single \
+  -cleanDownloads \
+  -UsePcoreLicense No \
+  -targetSubscription 00000000-0000-0000-0000-000000000000 \
+  -targetResourceGroup MyRG \
+  -AutomationAccResourceGroupName MyAutoRG \
+  -AutomationAccountName MyAutoAcct \
+  -Location EastUS
 ```
 
-#### Schedule Daily for Both Environments
+### Scheduled Azure-Only Run (Every Sunday at 8 AM)
+
 ```powershell
-.\schedule-pay-transition.ps1 `
-  -Target Both `
-  -RunMode Scheduled
+.\schedule-pay-transition.ps1 \
+  -Target Azure \
+  -RunMode Scheduled \
+  -AutomationAccResourceGroupName MyAutoRG \
+  -Location EastUS \
+  -Time 08:00AM \
+  -DayOfWeek Sunday
 ```
+
+
+
