@@ -341,7 +341,6 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -ResourceGroupName $ResourceGroupName `
         -AutomationAccountName $AutomationAccountName `
         -Name $ScheduleName `
-        -StartTime (Get-Date).AddDays(1)`
         -WeekInterval 1 `
         -DaysOfWeek @($DayOfWeek) `
         -StartTime $Time `
