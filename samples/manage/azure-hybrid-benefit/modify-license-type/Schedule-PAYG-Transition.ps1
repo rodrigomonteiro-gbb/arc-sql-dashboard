@@ -272,16 +272,16 @@ if($RunMode -eq "Single") {
     if ($Target -eq "Both" -or $Target -eq "Azure") {
         $fileName = Split-Path $scriptUrls.Azure.URL -Leaf
         $dest     = Join-Path $downloadFolder $fileName
-        Write-Host "Downloading $($scriptUrls.Arc.URL) to $dest..."
-        Invoke-RestMethod -Uri $scriptUrls.Arc.URL -OutFile $dest
+        Write-Host "Downloading $($scriptUrls.Azure.URL) to $dest..."
+        Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $dest
 
        
         $wrapper +="$dest ``" 
-        $count = $scriptUrls.Arc.Args.Keys.Count
+        $count = $scriptUrls.Azure.Args.Keys.Count
         foreach ($arg in $scriptUrls.Azure.Args.Keys) {
             if ("" -ne $scriptUrls.Azure.Args[$arg]) {
                 $count--
-                if($scriptUrls.Arc.Azure[$arg] -eq "True" -or $scriptUrls.Azure.Args[$arg] -eq "False") {
+                if($scriptUrls.Azure.Args[$arg] -eq "True" -or $scriptUrls.Azure.Args[$arg] -eq "False") {
                     if($scriptUrls.Azure.Args[$arg] -eq "True"){
                             $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
                                             }
