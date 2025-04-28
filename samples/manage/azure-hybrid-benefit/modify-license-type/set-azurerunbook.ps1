@@ -336,6 +336,7 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
 }
 if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
     Write-Output "Creating schedule '$ScheduleName'..."
+    $StartTime = (Get-Date $Time).AddDays(1)
     # Set the schedule to start 5 minutes from now and expire in one year, with daily frequency.
     New-AzAutomationSchedule `
         -ResourceGroupName $ResourceGroupName `
@@ -343,7 +344,7 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -Name $ScheduleName `
         -WeekInterval 1 `
         -DaysOfWeek @($DayOfWeek) `
-        -StartTime $StartTime = (Get-Date $Time).AddDays(1) `
+        -StartTime $StartTime `
         -TimeZone $TimeZone `
         -Description 'Default schedule for runbook'   | Out-Null
 } 
