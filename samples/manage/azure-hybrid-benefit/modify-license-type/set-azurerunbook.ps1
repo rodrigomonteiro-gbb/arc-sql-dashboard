@@ -343,7 +343,7 @@ if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -Automa
         -Name $ScheduleName `
         -WeekInterval 1 `
         -DaysOfWeek @($DayOfWeek) `
-        -StartTime $Time `
+        -StartTime $StartTime = (Get-Date $Time).AddDays(1) `
         -TimeZone $TimeZone `
         -Description 'Default schedule for runbook'   | Out-Null
 } 
