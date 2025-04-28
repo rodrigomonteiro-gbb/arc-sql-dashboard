@@ -138,7 +138,6 @@ if ($SubId -like "*.csv") {
     $subscriptions = Import-Csv $SubId
 }elseif($SubId -ne "") {
     Write-Output "Passed Subscription $($SubId)"
-    
     $subscriptions = [PSCustomObject]@{SubscriptionId = $SubId} | Get-AzSubscription -TenantID $tenantID
 }else {
     $subscriptions = Get-AzSubscription -TenantID $tenantID
