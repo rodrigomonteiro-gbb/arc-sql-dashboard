@@ -91,8 +91,8 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$targetSubscription=$null,
 
-    [Parameter(Mandatory=$true)]
-    [string]$AutomationAccResourceGroupName,
+    [Parameter(Mandatory=$false)]
+    [string]$AutomationAccResourceGroupName="AutomationAccResourceGroupName",
 
     [Parameter(Mandatory=$false)]
     [string]$AutomationAccountName="aaccAzureArcSQLLicenseType",
