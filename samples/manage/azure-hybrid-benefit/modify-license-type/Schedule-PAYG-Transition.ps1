@@ -254,9 +254,11 @@ if($RunMode -eq "Single") {
 
         
         $wrapper +="$dest ``" 
+        $count = $scriptUrls.Arc.Args.Keys.Count
         foreach ($arg in $scriptUrls.Arc.Args.Keys) {
             if ("" -ne $scriptUrls.Arc.Args[$arg]) {
-                $wrapper+="-$($arg)='$($scriptUrls.Arc.Args[$arg])'"
+                $count--
+                $wrapper+="-$($arg)='$($scriptUrls.Arc.Args[$arg])' $(if ($count -gt 0) { "``" "})"
             }   
         }
     }
@@ -269,9 +271,11 @@ if($RunMode -eq "Single") {
 
        
         $wrapper +="$dest ``" 
+        $count = $scriptUrls.Arc.Args.Keys.Count
         foreach ($arg in $scriptUrls.Azure.Args.Keys) {
             if ("" -ne $scriptUrls.Azure.Args[$arg]) {
-                $wrapper+="-$($arg)='$($scriptUrls.Azure.Args[$arg])'"
+                $count--
+                $wrapper+="-$($arg)='$($scriptUrls.Azure.Args[$arg])' $(if ($count -gt 0) { "``" "})"
             }   
         }
     }
