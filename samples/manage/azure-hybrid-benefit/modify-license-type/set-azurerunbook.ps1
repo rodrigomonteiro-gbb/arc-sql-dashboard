@@ -212,7 +212,7 @@ function Connect-Azure {
                 if ($existing) {
                     Write-Output "Removing existing Automation module '$mod'..." -ForegroundColor Magenta
                     Remove-AzAutomationModule -ResourceGroupName $ResourceGroupName `
-                        -AutomationAccountName $AutomationAccountName -Name $mod -Force
+                        -AutomationAccountName $AutomationAccountName -Name $mod -Force -ErrorAction SilentlyContinue
                         Write-Output "  → Removed '$mod'." -ForegroundColor Green
                 }
             }
