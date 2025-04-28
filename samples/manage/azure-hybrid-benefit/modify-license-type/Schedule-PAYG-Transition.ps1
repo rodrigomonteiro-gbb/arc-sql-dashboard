@@ -104,8 +104,9 @@ param(
     [string]$Time="8:00AM",
     [Parameter(Mandatory=$false)]
     [System.DayOfWeek] $DayOfWeek=[System.DayOfWeek]::Sunday,
-    
+
     [Parameter(Mandatory=$false)]
+    [ValidateSet("BasePrice","LicenseIncluded","LicenseOnly", IgnoreCase=$false)]
     [string]$SQLLicenseType="PAYG"
 )
 $git = "sql-server-samples"
@@ -137,7 +138,7 @@ $scriptUrls = @{
     Arc   = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-arc-sql-license-type.ps1"
         Args =@{
-            LicenseType= $SQLLicenseType
+            LicenseType= $SQLLicenseType -eq "LicenseIncluded" ? "PAYG" : $SQLLicenseType -eq  "BasePrice" ? "Paid" : $SQLLicenseType
             Force = $true
             UsePcoreLicense=[string]$UsePcoreLicense
             SubId = [string]$targetSubscription
