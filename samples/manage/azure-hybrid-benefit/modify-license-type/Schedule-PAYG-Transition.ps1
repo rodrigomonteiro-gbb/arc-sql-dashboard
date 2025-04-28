@@ -104,6 +104,7 @@ param(
     [string]$Time="8:00AM",
     [Parameter(Mandatory=$false)]
     [System.DayOfWeek] $DayOfWeek=[System.DayOfWeek]::Sunday,
+    
     [Parameter(Mandatory=$false)]
     [string]$SQLLicenseType="PAYG"
 )
