@@ -244,6 +244,8 @@ if($RunMode -eq "Single") {
     if ($Target -eq "Both" -or $Target -eq "Arc") {
         $fileName = Split-Path $scriptUrls.Arc.URL -Leaf
         $dest     = Join-Path $downloadFolder $fileName
+        Write-Host "Downloading $($scriptUrls.Arc.URL) to $dest..."
+        Invoke-RestMethod -Uri $scriptUrls.Arc.URL -OutFile $dest
 
         
         $wrapper +="$dest ``" 
@@ -257,6 +259,8 @@ if($RunMode -eq "Single") {
     if ($Target -eq "Both" -or $Target -eq "Azure") {
         $fileName = Split-Path $scriptUrls.Azure.URL -Leaf
         $dest     = Join-Path $downloadFolder $fileName
+        Write-Host "Downloading $($scriptUrls.Arc.URL) to $dest..."
+        Invoke-RestMethod -Uri $scriptUrls.Arc.URL -OutFile $dest
 
        
         $wrapper +="$dest ``" 
@@ -268,7 +272,7 @@ if($RunMode -eq "Single") {
     }
 
     $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8 
-    .\runnow.ps1
+    #.\runnow.ps1
 
     Write-Host "Single run completed."
 }else{
