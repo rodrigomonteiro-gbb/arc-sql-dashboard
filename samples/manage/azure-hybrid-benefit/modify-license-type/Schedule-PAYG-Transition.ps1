@@ -260,10 +260,10 @@ if($RunMode -eq "Single") {
                 $count--
                 if($scriptUrls.Arc.Args[$arg] -eq "True" -or $scriptUrls.Arc.Args[$arg] -eq "False") {
                     if($scriptUrls.Arc.Args[$arg] -eq "True"){
-                    $wrapper+="-$($arg) $(if ($count -gt 0) { '``'})"
+                    $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
                     }
                 }else {
-                    $wrapper+="-$($arg) '$($scriptUrls.Arc.Args[$arg])' $(if ($count -gt 0) { '``' })"
+                    $wrapper+="-$($arg) '$($scriptUrls.Arc.Args[$arg])' $(if ($count -gt 0) { '`' })"
                 }
             }   
         }
@@ -283,10 +283,10 @@ if($RunMode -eq "Single") {
                 $count--
                 if($scriptUrls.Arc.Azure[$arg] -eq "True" -or $scriptUrls.Azure.Args[$arg] -eq "False") {
                     if($scriptUrls.Azure.Args[$arg] -eq "True"){
-                            $wrapper+="-$($arg) $(if ($count -gt 0) { '``'})"
+                            $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
                                             }
                 }else{
-                    $wrapper+="-$($arg) '$($scriptUrls.Azure.Args[$arg])' $(if ($count -gt 0) { '``'})"
+                    $wrapper+="-$($arg) '$($scriptUrls.Azure.Args[$arg])' $(if ($count -gt 0) { '`'})"
                 }
                 
             }   
