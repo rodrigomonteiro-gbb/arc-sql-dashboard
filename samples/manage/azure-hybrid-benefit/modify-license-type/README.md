@@ -3,7 +3,7 @@
 `schedule-pay-transition.ps1` automates the process of applying pay-transition licensing for Azure and Azure Arc–connected SQL resources. It supports two modes:
 
 - **Single**: Download and invoke the Azure and/or Arc pay-transition scripts immediately, then optionally clean up the downloads.
-- **Scheduled**: Register or update a task (Windows Scheduled Task or Automation schedule) to run daily at a specified time and day.
+- **Scheduled**: Register or update a task (Automation schedule) to run daily at a specified time and day.
 
 By centralizing these steps, you ensure consistent licensing across your estate with minimal manual effort.
 
