@@ -110,7 +110,7 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$AutomationAccountName="aaccAzureArcSQLLicenseType",
 
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$Location=$null,
 
     [Parameter(Mandatory=$false)]
@@ -272,19 +272,24 @@ if($RunMode -eq "Single") {
 
         
         $wrapper +="$dest ``" 
-        $count = $scriptUrls.Arc.Args.Keys.Count
+        $arcparam = @()
         foreach ($arg in $scriptUrls.Arc.Args.Keys) {
-            if ("" -ne $scriptUrls.Arc.Args[$arg]) {
-                $count--
+            if ("" -ne $scriptUrls.Arc.Args[$arg] -and $null -ne $scriptUrls.Arc.Args[$arg]) {
                 if($scriptUrls.Arc.Args[$arg] -eq "True" -or $scriptUrls.Arc.Args[$arg] -eq "False") {
                     if($scriptUrls.Arc.Args[$arg] -eq "True"){
-                    $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
+                        $arcparam+="-$($arg)"
                     }
-                }else {
-                    $wrapper+="-$($arg) '$($scriptUrls.Arc.Args[$arg])' $(if ($count -gt 0) { '`' })"
+                }else{
+                    $arcparam+="-$($arg) '$($scriptUrls.Arc.Args[$arg])'"
                 }
-            }   
+            }
         }
+        $count = $arcparam.Count
+        foreach ($arg in $arcparam) {
+            $count--
+            $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
+        }
+
     }
 
     if ($Target -eq "Both" -or $Target -eq "Azure") {
@@ -295,19 +300,23 @@ if($RunMode -eq "Single") {
 
        
         $wrapper +="$dest ``" 
-        $count = $scriptUrls.Azure.Args.Keys.Count
+        
+        $azureparam = @()
         foreach ($arg in $scriptUrls.Azure.Args.Keys) {
-            if ("" -ne $scriptUrls.Azure.Args[$arg]) {
-                $count--
+            if ("" -ne $scriptUrls.Azure.Args[$arg] -and $null -ne $scriptUrls.Azure.Args[$arg]) {
                 if($scriptUrls.Azure.Args[$arg] -eq "True" -or $scriptUrls.Azure.Args[$arg] -eq "False") {
                     if($scriptUrls.Azure.Args[$arg] -eq "True"){
-                            $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
-                                            }
+                        $azureparam+="-$($arg)"
+                    }
                 }else{
-                    $wrapper+="-$($arg) '$($scriptUrls.Azure.Args[$arg])' $(if ($count -gt 0) { '`'})"
+                    $azureparam+="-$($arg) '$($scriptUrls.Azure.Args[$arg])'"
                 }
-                
-            }   
+            }
+        }
+        $count = $azureparam.Count
+        foreach ($arg in $azureparam) {
+            $count--
+            $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
         }
     }
 
