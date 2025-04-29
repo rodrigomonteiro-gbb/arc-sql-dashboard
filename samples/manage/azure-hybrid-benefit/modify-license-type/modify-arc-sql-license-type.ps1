@@ -56,6 +56,7 @@ function Connect-Azure {
     }
     elseif (($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'AzureAutomation*') -or $PSPrivateMetadata.JobId) {
         $envType = "AzureAutomation"
+        $UseManagedIdentity=$true
     }
     Write-Verbose "Environment detected: $envType"
 
@@ -86,8 +87,20 @@ function Connect-Azure {
     # 4) Sync Azure CLI if available
     if (Get-Command az -ErrorAction SilentlyContinue) {
         try {
+            Write-Output "Check if az CLI is loged on..."
             $acct = az account show --output json | ConvertFrom-Json
-            Write-Output "Azure CLI logged in as: $($acct.user.name)"
+            Write-Output "az: $($acct)"
+            if($null -eq $acct)
+            {
+                Write-Output "Azure CLI not logged in. Running az login..."
+                if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+                    az login --identity | Out-Null
+                }
+                else {
+                    az login | Out-Null
+                }
+                $acct = az account show --output json | ConvertFrom-Json
+            }
         }
         catch {
             Write-Output "Azure CLI not logged in. Running az login..."
@@ -97,8 +110,11 @@ function Connect-Azure {
             else {
                 az login | Out-Null
             }
+            $acct = az account show --output json | ConvertFrom-Json
         }
     }
+    Write-Output "Azure CLI logged in as: $($acct.user.name)"        
+
 }
 
 

@@ -130,6 +130,7 @@ function Connect-Azure {
     }
     elseif (($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'AzureAutomation*') -or $PSPrivateMetadata.JobId) {
         $envType = "AzureAutomation"
+        $UseManagedIdentity=$true
     }
     Write-Verbose "Environment detected: $envType"
 
@@ -160,8 +161,20 @@ function Connect-Azure {
     # 4) Sync Azure CLI if available
     if (Get-Command az -ErrorAction SilentlyContinue) {
         try {
+            Write-Output "Check if az CLI is loged on..."
             $acct = az account show --output json | ConvertFrom-Json
-            Write-Output "Azure CLI logged in as: $($acct.user.name)"
+            Write-Output "az: $($acct)"
+            if($null -eq $acct)
+            {
+                Write-Output "Azure CLI not logged in. Running az login..."
+                if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+                    az login --identity | Out-Null
+                }
+                else {
+                    az login | Out-Null
+                }
+                $acct = az account show --output json | ConvertFrom-Json
+            }
         }
         catch {
             Write-Output "Azure CLI not logged in. Running az login..."
@@ -171,8 +184,11 @@ function Connect-Azure {
             else {
                 az login | Out-Null
             }
+            $acct = az account show --output json | ConvertFrom-Json
         }
     }
+    Write-Output "Azure CLI logged in as: $($acct.user.name)"        
+
 }
 
     function LoadAzModules {
@@ -330,24 +346,44 @@ if (-not (Get-AzAutomationRunbook -ResourceGroupName $ResourceGroupName -Automat
 
 
 # Create a daily schedule for the runbook (if it doesn't exist).
-$ScheduleName = "$($RunbookName)_defaultschedule"
-if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
+$timeZoneId            = [System.TimeZoneInfo]::Local.Id.ToString()
+$timeZoneStandardName  = [System.TimeZoneInfo]::Local.StandardName.ToString()
+$ScheduleName          = "$($RunbookName)-$($DayOfWeek)-$($Time.Hour.ToString("00"))$($Time.Minute.ToString("00"))-$($timeZoneId)"
+
+if ((Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
     Remove-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue -Force | Out-Null
 }
 if (-not (Get-AzAutomationSchedule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $ScheduleName -ErrorAction SilentlyContinue)) {
     Write-Output "Creating schedule '$ScheduleName'..."
     # Set the schedule to start 5 minutes from now and expire in one year, with daily frequency.
     
+    # 1) Define your variables
 
+    # 2) Figure out the next Sunday
+    $today        = Get-Date
+    # ($DayOfWeek - $today.DayOfWeek + 7) % 7 gives days until next Sunday
+    $daysToSunday = ($DayOfWeek - $today.DayOfWeek + 7) % 7
+    $nextSunday   = $today.Date.AddDays($daysToSunday)
+
+    # 3) Build a DateTime at 8:00 AM on that Sunday
+    $startDateTime = Get-Date `
+        -Year  $nextSunday.Year `
+        -Month $nextSunday.Month `
+        -Day   $nextSunday.Day `
+        -Hour  $Time.Hour `
+        -Minute $Time.Minute `
+        -Second 0
+
+    Write-Output "Scheduled '$ScheduleName' starting $startDateTime ($timeZone.Id)"
     New-AzAutomationSchedule `
         -ResourceGroupName $ResourceGroupName `
         -AutomationAccountName $AutomationAccountName `
         -Name $ScheduleName `
         -WeekInterval 1 `
         -DaysOfWeek @($DayOfWeek) `
-        -StartTime $Time.AddHours(25)`
-        -TimeZone "EST" `
-        -Description 'Default schedule for runbook'   | Out-Null
+        -StartTime $startDateTime `
+        -TimeZone $timeZoneStandardName `
+        -Description "Runs every $($DayOfWeek)-$($Time.Hour.ToString("00"))$($Time.Minute.ToString("00"))-$($timeZoneId)"   | Out-Null
 } 
 
 # Link the schedule to the runbook, including the sample parameters.
