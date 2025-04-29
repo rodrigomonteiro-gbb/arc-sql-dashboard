@@ -174,7 +174,7 @@ foreach ($sub in $subscriptions) {
     # Consent tag enforcement on the CSP subscriptions
     if ($LicenseType -eq "PAYG") {
         $offers = @("MS-AZR-0145P", "MS-AZR-DE-0145P", "MS-AZR-0017G", "MS-AZR-159P", "MS-AZR-USGOV-0145P")
-        $subscriptionOffers = Get-AzSubscription -SubscriptionId $sub.Id | Select-Object -ExpandProperty OfferId
+        $subscriptionOffers = Get-AzSubscription -SubscriptionId $sub.Id | Select-Object -ExpandProperty OfferId -ErrorAction SilentlyContinue
         if ($subscriptionOffers -contains $offers) {
             if ($tags.Tags.ContainsKey("SQLPerpetualPaygBilling")) {
                 if ($tags.Tags["SQLPerpetualPaygBilling"] -ne "Enabled") {
