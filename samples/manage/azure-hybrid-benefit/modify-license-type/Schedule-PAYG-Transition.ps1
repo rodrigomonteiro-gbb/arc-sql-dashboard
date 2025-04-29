@@ -287,7 +287,7 @@ if($RunMode -eq "Single") {
         $count = $arcparam.Count
         foreach ($arg in $arcparam) {
             $count--
-            $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
+            $wrapper+="$($arg) $(if ($count -gt 0) { '`'})"
         }
 
     }
@@ -316,7 +316,7 @@ if($RunMode -eq "Single") {
         $count = $azureparam.Count
         foreach ($arg in $azureparam) {
             $count--
-            $wrapper+="-$($arg) $(if ($count -gt 0) { '`'})"
+            $wrapper+="$($arg) $(if ($count -gt 0) { '`'})"
         }
     }
 
