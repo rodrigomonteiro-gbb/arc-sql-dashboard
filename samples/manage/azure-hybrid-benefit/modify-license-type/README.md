@@ -72,7 +72,7 @@ You can fetch and run the script locally or in Azure Cloud Shell. Below are exam
 ```powershell
 # Download
 $project = "arc-sql-dashboard"
-$$git = "rodrigomonteiro-gbb"
+$git = "rodrigomonteiro-gbb"
 Invoke-RestMethod `
   -Uri https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
   -OutFile schedule-pay-transition.ps1
@@ -87,7 +87,7 @@ Invoke-RestMethod `
 ```powershell
 # Download
 $project = "arc-sql-dashboard"
-$$git = "rodrigomonteiro-gbb"
+$git = "rodrigomonteiro-gbb"
 Invoke-RestMethod `
   -Uri https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
   -OutFile schedule-pay-transition.ps1
@@ -104,7 +104,7 @@ Invoke-RestMethod `
 ```powershell
 # Download
 $project = "arc-sql-dashboard"
-$$git = "rodrigomonteiro-gbb"
+$git = "rodrigomonteiro-gbb"
 Invoke-RestMethod `
   -Uri https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
   -OutFile schedule-pay-transition.ps1
