@@ -177,19 +177,20 @@ Write-Output "Our adventure begins at: $scriptStartTime`n"
 # Process each subscription.
 foreach ($sub in $subscriptions) {
     try {
-        Write-Output "===== Entering the realm of Subscription: $($sub.name) ====="
+        Write-Output "===== Entering Subscription: $($sub.name) ====="
         Write-Output "Switching context to subscription: $($sub.name)"
         az account set --subscription $sub.id
 
         # --- Section: Update SQL Virtual Machines ---
         try {
-            Write-Output "Seeking SQL Virtual Machines that require a license update..."
+            Write-Output "Seeking SQL Virtual Machines that require a license update to $SqlVmLicenseType..."
             $sqlVmQuery = if ($rgFilter) {
                 "[?sqlServerLicenseType!='${SqlVmLicenseType}' && $rgFilter]"
             }
             else {
                 "[?sqlServerLicenseType!='${SqlVmLicenseType}']"
             }
+            Write-Output "Seeking SQL Virtual Machines with filter $sqlVmQuery..."
             $sqlVMs = az sql vm list --query $sqlVmQuery -o json | ConvertFrom-Json
             $sqlVmsToUpdate = [System.Collections.ArrayList]::new()
 
@@ -218,13 +219,14 @@ foreach ($sub in $subscriptions) {
         $sqlMIsToUpdate = [System.Collections.ArrayList]::new()
         try {
             if ($Force_Start_On_Resources) {
-                Write-Output "Seeking SQL Managed Instances that are stopped and require an update..."
+                Write-Output "Seeking SQL Managed Instances that are stopped and require an update to $LicenseType..."
                 $miQuery = if ($rgFilter) {
                     "[?licenseType!='${LicenseType}' && state!='Ready' && $rgFilter].{Name:name, State:state, ResourceGroup:resourceGroup}"
                 }
                 else {
                     "[?licenseType!='${LicenseType}' && state!='Ready'].{Name:name, State:state, ResourceGroup:resourceGroup}"
                 }
+                Write-Output "Seeking SQL Managed Instances with Filter $miQuery..."
                 $offSQLMIs = az sql mi list --query $miQuery -o json | ConvertFrom-Json
                 foreach ($mi in $offSQLMIs) {
                     if ($mi.State -eq "Stopped") {
@@ -235,13 +237,14 @@ foreach ($sub in $subscriptions) {
                 }
             }
 
-            Write-Output "Processing SQL Managed Instances that are running..."
+            Write-Output "Processing SQL Managed Instances that are running to $LicenseType..."
             $miRunningQuery = if ($rgFilter) {
                 "[?licenseType!='${LicenseType}' && state=='Ready' && $rgFilter]"
             }
             else {
                 "[?licenseType!='${LicenseType}' && state=='Ready']"
             }
+            Write-Output "Processing SQL Managed Instances that are running with filter $miRunningQuery..."
             $runningMIs = az sql mi list --query $miRunningQuery -o json | ConvertFrom-Json
             foreach ($mi in $runningMIs) {
                 Write-Output "Updating SQL Managed Instance '$($mi.name)' in RG '$($mi.resourceGroup)' to license type '$LicenseType'..."
