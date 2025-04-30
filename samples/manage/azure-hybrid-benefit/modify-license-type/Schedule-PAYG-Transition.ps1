@@ -126,12 +126,13 @@ param(
     [ValidateSet("Yes","No", IgnoreCase=$false)]
     [string] $EnableESU="No"
 )
+<# For Prod Deployment
 $git = "sql-server-samples"
 $environment = "microsoft"
-if($null -ne $env:MYAPP_ENV) {
-    $git = "arc-sql-dashboard"
-    $environment = $env:MYAPP_ENV
-}
+#>
+$git = "arc-sql-dashboard"
+$environment = "rodrigomonteiro-gbb"
+
 # === Configuration ===
 $scriptUrls = @{
     General = @{

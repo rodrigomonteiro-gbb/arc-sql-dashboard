@@ -152,13 +152,7 @@ function Connect-Azure {
         Write-Output "Connected to Azure PowerShell as: $($ctx.Account)"
     }
 
-    # 3) (Optional) adjust for Cloud Shell
-    if ($envType -eq 'CloudShell') {
-        Write-Verbose "Switching to clouddrive"
-        Set-Location "$HOME\clouddrive"
-    }
-
-    # 4) Sync Azure CLI if available
+    # 3) Sync Azure CLI if available
     if (Get-Command az -ErrorAction SilentlyContinue) {
         try {
             Write-Output "Check if az CLI is loged on..."

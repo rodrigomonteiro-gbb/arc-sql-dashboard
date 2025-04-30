@@ -67,118 +67,58 @@ You can fetch and run the script locally or in Azure Cloud Shell. Below are exam
 
 ### From Local PowerShell (Windows or PowerShell 7)
 
-**Using PowerShell**:
+**Using PowerShell for a single time run of the script**:
 
 ```powershell
 # Download
-$git = "microsfot"
-$project = "sql-server-samples"
+$git = "arc-sql-dashboard"
+$environment = "rodrigomonteiro-gbb"
 Invoke-RestMethod `
   -Uri https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
   -OutFile schedule-pay-transition.ps1
 
-# Execute (Single run)
+# Execute with -Target = Both to Target Both Arc and Azure resources
 .\schedule-pay-transition.ps1 `
   -Target Both `
   -RunMode Single `
-  -cleanDownloads $true `
-  -UsePcoreLicense No `
-  -targetSubscription 00000000-0000-0000-0000-000000000000 `
-  -targetResourceGroup MyRG `
-  -AutomationAccResourceGroupName MyAutoRG `
-  -AutomationAccountName MyAutoAcct `
-  -Location EastUS
+  -UsePcoreLicense No 
 ```
-
-**Using curl**:
 
 ```powershell
 # Download
-$git = "microsfot"
-$project = "sql-server-samples"
-curl.exe -L `
-  https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
-  -o schedule-pay-transition.ps1
-
-# Execute
-pwsh.exe .\schedule-pay-transition.ps1 `
-  -Target Azure `
-  -RunMode Scheduled `
-  -AutomationAccResourceGroupName MyAutoRG `
-  -Location EastUS `
-  -Time 08:00AM `
-  -DayOfWeek Sunday
-```
-
-### From Azure Cloud Shell (Bash or PowerShell)
-
-**Bash + curl + PowerShell**:
-
-```bash
-# Download
-git = "microsfot"
-project = "sql-server-samples"
-curl -sL https://raw.githubusercontent.com/microsfot/sql-server-samples/master/schedule-pay-transition.ps1 -o schedule-pay-transition.ps1
-
-# Execute in PowerShell Core
-pwsh schedule-pay-transition.ps1 `
-  -Target Both `
-  -RunMode Single `
-  -cleanDownloads `
-  -AutomationAccResourceGroupName MyAutoRG `
-  -Location EastUS
-```
-
-**PowerShell in Cloud Shell**:
-
-```powershell
-# Download
-$git = "microsfot"
-$project = "sql-server-samples"
+$git = "arc-sql-dashboard"
+$environment = "rodrigomonteiro-gbb"
 Invoke-RestMethod `
-  -Uri https://raw.githubusercontent.com/microsfot/sql-server-samples/master/schedule-pay-transition.ps1 `
+  -Uri https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
   -OutFile schedule-pay-transition.ps1
 
-# Execute
+# Execute with -Target = Arc to Target only Arc resource
 .\schedule-pay-transition.ps1 `
-  -Target Azure `
-  -RunMode Scheduled `
-  -AutomationAccResourceGroupName MyAutoRG `
-  -Location EastUS `
-  -Time 02:00AM `
-  -DayOfWeek Wednesday
-```
-
----
-
-## Examples
-
-### Single Run (Arc + Azure) with Cleanup
-
-```powershell
-.\schedule-pay-transition.ps1 `
-  -Target Both `
+  -Target Arc `
   -RunMode Single `
-  -cleanDownloads `
-  -UsePcoreLicense No `
-  -targetSubscription 00000000-0000-0000-0000-000000000000 `
-  -targetResourceGroup MyRG `
-  -AutomationAccResourceGroupName MyAutoRG `
-  -AutomationAccountName MyAutoAcct `
-  -Location EastUS
+  -UsePcoreLicense No 
 ```
 
-### Scheduled Azure-Only Run (Every Sunday at 8 AM)
+**Using PowerShell for a multiple time runs of the script (schedule using Azure Atomation)**:
 
 ```powershell
-.\schedule-pay-transition.ps1 `
+# Download
+$git = "arc-sql-dashboard"
+$environment = "rodrigomonteiro-gbb"
+Invoke-RestMethod `
+  -Uri https://raw.githubusercontent.com/$git/$project/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/Schedule-PAYG-Transition.ps1 `
+  -OutFile schedule-pay-transition.ps1
+
+# Execute with -Target = Azure to Target only Azure resource, -RunMode = Schedule to create a schedule run on Azure Automation (-Time = 8:00 and -DayOfWeek = Sunday) eevery Sunday at 8AM local time
+ .\schedule-pay-transition.ps1 `
   -Target Azure `
   -RunMode Scheduled `
   -AutomationAccResourceGroupName MyAutoRG `
   -Location EastUS `
-  -Time 08:00AM `
+  -Time 08:00 `
   -DayOfWeek Sunday
-```
+
+
 
 
 
