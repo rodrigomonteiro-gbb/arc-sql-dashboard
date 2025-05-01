@@ -68,6 +68,7 @@ You can fetch and run the script locally or in Azure Cloud Shell. Below are exam
 ### From Local PowerShell (Windows or PowerShell 7)
 
 **Using PowerShell for a single time run of the script**:
+[Download the script](./schedule-pay-transition.ps1)
 
 ```powershell
 # Download
