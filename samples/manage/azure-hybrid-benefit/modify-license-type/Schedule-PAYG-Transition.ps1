@@ -132,38 +132,55 @@ $environment = "microsoft"
 #>
 $git = "arc-sql-dashboard"
 $environment = "rodrigomonteiro-gbb"
+# === Pre-compute LicenseType mappings ===
+$AzureLicenseType = $null
+$ArcLicenseType = $null
+# For the Azure scripts
+switch ($SQLLicenseType) {
+    'LicenseOnly' { $AzureLicenseType = 'BasePrice'; break }
+    'PAYG'        { $AzureLicenseType = 'LicenseIncluded'; break }
+    'Paid'        { $AzureLicenseType = 'BasePrice'; break }
+    default       { $AzureLicenseType = $SQLLicenseType; break }
+}
 
+# For the Arc scripts
+switch ($SQLLicenseType) {
+    'LicenseIncluded' { $ArcLicenseType = 'PAYG'; break }
+    'BasePrice'       { $ArcLicenseType = 'Paid'; break }
+    default           { $ArcLicenseType = $SQLLicenseType; break }
+}
 # === Configuration ===
 $scriptUrls = @{
     General = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/set-azurerunbook.ps1"
         Args = @{
-            ResourceGroupName= "'$($AutomationAccResourceGroupName)'"
-            AutomationAccountName= $AutomationAccountName 
-            Location= $Location
-            targetResourceGroup= $targetResourceGroup
-            targetSubscription= $targetSubscription}
+            ResourceGroupName       = "'$($AutomationAccResourceGroupName)'"
+            AutomationAccountName   = $AutomationAccountName 
+            Location                = $Location
+            targetResourceGroup     = $targetResourceGroup
+            targetSubscription      = $targetSubscription
         }
+    }
     Azure = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
         Args = @{
-            Force_Start_On_Resources = $true
-            SubId = [string]$targetSubscription
-            ResourceGroup = [string]$targetResourceGroup
-            LicenseType= $SQLLicenseType -eq "LicenseOnly" ? "BasePrice" : $SQLLicenseType -eq "PAYG" ? "LicenseIncluded" : $SQLLicenseType -eq "Paid" ? "BsePrice" : $SQLLicenseType
+            Force_Start_On_Resources = $false
+            SubId                     = [string]$targetSubscription
+            ResourceGroup             = [string]$targetResourceGroup
+            LicenseType               = $AzureLicenseType
         }
     }
-    Arc   = @{
+    Arc = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-arc-sql-license-type.ps1"
-        Args =@{
-            LicenseType= $SQLLicenseType -eq "LicenseIncluded" ? "PAYG" : $SQLLicenseType -eq  "BasePrice" ? "Paid" : $SQLLicenseType
-            Force = $true
-            UsePcoreLicense=[string]$UsePcoreLicense
-            SubId = [string]$targetSubscription
-            ResourceGroup = [string]$targetResourceGroup
-            EnableESU = $EnableESU
+        Args = @{
+            LicenseType             = $ArcLicenseType
+            Force                   = $true
+            UsePcoreLicense         = [string]$UsePcoreLicense
+            SubId                   = [string]$targetSubscription
+            ResourceGroup           = [string]$targetResourceGroup
+            EnableESU               = $EnableESU
         }
-   }
+    }
 }
 # Define a dedicated download folder under TEMP
 $downloadFolder = './PayTransitionDownloads/'
