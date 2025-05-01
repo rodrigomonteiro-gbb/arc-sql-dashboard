@@ -83,11 +83,11 @@
 #>
 
 param(
-    [Parameter(Mandatory, Position=0)]
+    [Parameter(Mandatory = $false, Position=1)]
     [ValidateSet("Arc","Azure","Both")]
-    [string]$Target,
+    [string]$Target = "Both",
 
-    [Parameter(Mandatory, Position=1)]
+    [Parameter(Mandatory, Position=0)]
     [ValidateSet("Single","Scheduled")]
     [string]$RunMode,
 

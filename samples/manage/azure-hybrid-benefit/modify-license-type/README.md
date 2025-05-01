@@ -47,19 +47,19 @@ This permission allows the script to:
 
 | Parameter                         | Required | Type        | Description                                                           |
 | --------------------------------- | :------: | ----------- | --------------------------------------------------------------------- |
-| `-Target`                         | Yes      | `String`    | `Arc`, `Azure`, or `Both`—which pay-transition to run.                |
 | `-RunMode`                        | Yes      | `String`    | `Single` or `Scheduled`.                                              |
+| `-Target`                         | No      | `String`    | `Arc`, `Azure`, or `Both`—which pay-transition to run.                |
 | `-cleanDownloads`                 | No       | `Switch`    | If specified in `Single` mode, deletes the download folder afterward. |
 | `-UsePcoreLicense`                | No       | `String`    | (`Arc` only) `Yes` or `No` for PCore licensing. Default: `No`.        |
 | `-targetResourceGroup`            | No       | `String`    | Target resource group for the downstream runbook.                     |
 | `-targetSubscription`             | No       | `String`    | Target subscription ID for the downstream runbook.                    |
-| `-AutomationAccResourceGroupName` | Yes      | `String`    | Resource group containing the Automation account.                     |
+| `-AutomationAccResourceGroupName` | No      | `String`    | Resource group containing the Automation account.                     |
 | `-AutomationAccountName`          | No       | `String`    | Automation account name. Default: `aaccAzureArcSQLLicenseType`.       |
-| `-Location`                       | Yes      | `String`    | Azure region (e.g. `EastUS`).                                         |
+| `-Location`                       | No      | `String`    | Azure region (e.g. `EastUS`).                                         |
 | `-Time`                           | No       | `String`    | (Scheduled) Time (`h:mmtt`, e.g. `08:00AM`). Default: `8:00AM`.       |
 | `-DayOfWeek`                      | No       | `DayOfWeek` | (Scheduled) Day of week. Default: `Sunday`.                           |
 | `-SQLLicenseType`                 | No       | `String`    | SQL license type to be set for the Azure and/or Arc resources.        |
-| `EnableESU`                       | No       | `String`    | Enable Extended Security Updates (ESU) for Arc SQL Server VMs.        |
+| `-EnableESU`                       | No       | `String`    | Enable Extended Security Updates (ESU) for Arc SQL Server VMs.        |
 ---
 ## Download & Execution
 
@@ -68,7 +68,6 @@ You can fetch and run the script locally or in Azure Cloud Shell. Below are exam
 ### From Local PowerShell (Windows or PowerShell 7)
 
 **Using PowerShell for a single time run of the script**:
-[Download the script](./schedule-pay-transition.ps1)
 
 ```powershell
 # Download
