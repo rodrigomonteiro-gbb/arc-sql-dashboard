@@ -211,7 +211,7 @@ foreach ($sub in $subscriptions) {
         Write-Output "VM-$($count)"
         write-Output "VM - $($resources.MachineName[$count])"
         $setID = @{
-            MachineName = $resources.MachineName][$count]
+            MachineName = $resources.MachineName[$count]
             Name = $resources.extensionName[$count]
             ResourceGroup = $resources.resourceGroup[$count]
             Location = $resources.location[$count]
