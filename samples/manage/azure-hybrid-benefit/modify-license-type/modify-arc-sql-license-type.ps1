@@ -201,27 +201,24 @@ foreach ($sub in $subscriptions) {
     } 
     
     $query += "
-    | project machineName, extensionName = name, resourceGroup, location, subscriptionId, extensionPublisher, extensionType, properties
+    | project machineName, extensionName = name, resourceGroup, location, subscriptionId, extensionPublisher, extensionType, properties,provisioningState
     "
-    $resources = @(Search-AzGraph -Query "$($query)" -First 1000)
+    $resources = Search-AzGraph -Query "$($query)" 
     Write-Output "Found $($resources.Count) resource(s) to update"
-    $count = 0
-    if ($resources.Count -gt 0) {
-        $count = $resources.MachineName.Count
-    }
+    $count = $resources.Count
     
     while($count -gt 0) {
         $count-=1
         Write-Output "VM-$($count)"
-        write-Output "VM - $($resources.MachineName[$count])"
+        write-Output "VM - $($resources[$count].MachineName)"
         $setID = @{
-            MachineName = $resources.MachineName[$count]
-            Name = $resources.extensionName[$count]
-            ResourceGroup = $resources.resourceGroup[$count]
-            Location = $resources.location[$count]
-            SubscriptionId = $resources.subscriptionId[$count]
-            Publisher = $resources.extensionPublisher[$count]
-            ExtensionType = $resources.extensionType[$count]
+            MachineName = $resources[$count].MachineName
+            Name = $resources[$count].extensionName
+            ResourceGroup = $resources[$count].resourceGroup
+            Location = $resources[$count].location
+            SubscriptionId = $resources[$count].subscriptionId
+            Publisher = $resources[$count].extensionPublisher
+            ExtensionType = $resources[$count].extensionType
         }
 
         write-Output "VM - $($setID.MachineName)"
@@ -233,58 +230,63 @@ foreach ($sub in $subscriptions) {
         
         $WriteSettings = $false
         $settings = @{}
-        $settings = $resources.properties[$count].settings | ConvertTo-Json | ConvertFrom-Json
+        $settings = $resources[$count].properties.settings | ConvertTo-Json | ConvertFrom-Json
         $ext = Get-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName
-        $LO_Allowed = (!$settings["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
-        
-        
-        write-Output "   LicenseType - $($settings.LicenseType)"
+        if($ext.ProvisioningState -ne "Succeeded") {
+            write-Output "Extension is not in a valid state. Skipping..."
+            {continue}
+        } else {
+            $LO_Allowed = (!$settings["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
+            
+            
+            write-Output "   LicenseType - $($settings.LicenseType)"
 
-        if ($LicenseType) {
-            if (($LicenseType -eq "LicenseOnly") -and !$LO_Allowed) {
-                write-Output "ESU must be disabled before license type can be set to $($LicenseType)"
-            } else {
-                if ($ext.Setting["LicenseType"]) {
-                    if ($Force) {
+            if ($LicenseType) {
+                if (($LicenseType -eq "LicenseOnly") -and !$LO_Allowed) {
+                    write-Output "ESU must be disabled before license type can be set to $($LicenseType)"
+                } else {
+                    if ($ext.Setting["LicenseType"]) {
+                        if ($Force) {
+                            $ext.Setting["LicenseType"] = $LicenseType
+                            $WriteSettings = $true
+                        }
+                    } else {
                         $ext.Setting["LicenseType"] = $LicenseType
                         $WriteSettings = $true
                     }
-                } else {
-                    $ext.Setting["LicenseType"] = $LicenseType
+                }
+            }
+            
+            if ($EnableESU) {
+                if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($EnableESU -eq "No")) {
+                    $ext.Setting["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
+                    $ext.Setting["esuLastUpdatedTimestamp"] = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
                     $WriteSettings = $true
+                } else {
+                    write-Output "The configured license type does not support ESUs" 
                 }
             }
-        }
-        
-        if ($EnableESU) {
-            if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($EnableESU -eq "No")) {
-                $ext.Setting["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
-                $ext.Setting["esuLastUpdatedTimestamp"] = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
-                $WriteSettings = $true
-            } else {
-                write-Output "The configured license type does not support ESUs" 
-            }
-        }
-        
-        if ($UsePcoreLicense) {
-            if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($UsePcoreLicense -eq "No")) {
-                $ext.Setting["UsePhysicalCoreLicense"] = @{
-                    "IsApplied" = ($UsePcoreLicense -eq "Yes");
-                    "LastUpdatedTimestamp" = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+            
+            if ($UsePcoreLicense) {
+                if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($UsePcoreLicense -eq "No")) {
+                    $ext.Setting["UsePhysicalCoreLicense"] = @{
+                        "IsApplied" = ($UsePcoreLicense -eq "Yes");
+                        "LastUpdatedTimestamp" = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+                    }
+                    $WriteSettings = $true
+                } else {
+                    write-Output "The configured license type does not support ESUs" 
                 }
-                $WriteSettings = $true
-            } else {
-                write-Output "The configured license type does not support ESUs" 
             }
-        }
-        write-Output "   Write Settings - $($WriteSettings)"
-        If ($WriteSettings) {
-            try { 
-                $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait -ErrorAction SilentlyContinue | Out-Null
-                Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
-            } catch {
-                write-Output "The request to modify the extension object failed with the following error:"
-                {continue}
+            write-Output "   Write Settings - $($WriteSettings)"
+            If ($WriteSettings) {
+                try { 
+                    $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait -ErrorAction SilentlyContinue | Out-Null
+                    Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
+                } catch {
+                    write-Output "The request to modify the extension object failed with the following error:"
+                    {continue}
+                }
             }
         }
     }
