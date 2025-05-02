@@ -205,7 +205,11 @@ foreach ($sub in $subscriptions) {
     "
     $resources = @(Search-AzGraph -Query "$($query)" -First 1000)
     Write-Output "Found $($resources.Count) resource(s) to update"
-    $count = $resources.Count
+    $count = 0
+    if ($resources.Count -gt 0) {
+        $count = $resources.MachineName.Count
+    }
+    |
     while($count -gt 0) {
         $count-=1
         Write-Output "VM-$($count)"
