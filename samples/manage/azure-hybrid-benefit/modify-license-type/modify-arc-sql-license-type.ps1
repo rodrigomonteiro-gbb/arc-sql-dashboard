@@ -280,7 +280,7 @@ foreach ($sub in $subscriptions) {
         write-Output "   Write Settings - $($WriteSettings)"
         If ($WriteSettings) {
             try { 
-                $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait | Out-Null
+                $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait -ErrorAction SilentlyContinue | Out-Null
                 Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
             } catch {
                 write-Output "The request to modify the extension object failed with the following error:"
