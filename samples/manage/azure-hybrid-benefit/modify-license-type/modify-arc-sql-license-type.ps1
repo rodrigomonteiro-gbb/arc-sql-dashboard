@@ -233,7 +233,7 @@ foreach ($sub in $subscriptions) {
         
         $WriteSettings = $false
         $settings = @{}
-        $settings = $resources[$count].properties.settings | ConvertTo-Json | ConvertFrom-Json
+        $settings = $resources.properties[$count].settings | ConvertTo-Json | ConvertFrom-Json
         $ext = Get-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName
         $LO_Allowed = (!$settings["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
         
@@ -281,7 +281,7 @@ foreach ($sub in $subscriptions) {
         If ($WriteSettings) {
             try { 
                 $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait | Out-Null
-                Write-Output "Updated -- Resource group: [$($resources[$count].resourceGroup)], Connected machine: [$($resources[$count].MachineName)]"
+                Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
             } catch {
                 write-Output "The request to modify the extension object failed with the following error:"
                 write-Output $_.Exception.Message
