@@ -209,7 +209,7 @@ foreach ($sub in $subscriptions) {
     if ($resources.Count -gt 0) {
         $count = $resources.MachineName.Count
     }
-    |
+    
     while($count -gt 0) {
         $count-=1
         Write-Output "VM-$($count)"
