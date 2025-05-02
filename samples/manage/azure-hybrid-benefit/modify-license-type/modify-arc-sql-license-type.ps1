@@ -284,7 +284,6 @@ foreach ($sub in $subscriptions) {
                 Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
             } catch {
                 write-Output "The request to modify the extension object failed with the following error:"
-                write-Output $_.Exception.Message
                 {continue}
             }
         }
