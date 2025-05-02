@@ -179,6 +179,17 @@ foreach ($sub in $subscriptions) {
     try {
         Write-Output "===== Entering Subscription: $($sub.name) ====="
         Write-Output "Switching context to subscription: $($sub.name)"
+        <#if($SqlVmLicenseType -eq "LicenseIncluded") {
+            Write-Output "SQL VM License Type: PAYG"
+            $ArcSQLServerExtensionDeployment = az tag list --resource-id "/subscriptions/$sub.id" --query "properties.tags.ArcSQLServerExtensionDeployment" -o json | ConvertFrom-Json
+            if ($ArcSQLServerExtensionDeployment -ne "LicenseIncluded") {
+                Write-Output "SQL VM License Type: PAYG"
+                az tag update --resource-id /"/subscriptions/$sub.id" --operation merge --tags ArcSQLServerExtensionDeployment=PAYG | Out-Null
+            }
+        } else {
+            Write-Output "SQL VM License Type: AHUB"
+        }#>
+        Write-Output "License Type: $LicenseType"
         az account set --subscription $sub.id
 
         # --- Section: Update SQL Virtual Machines ---

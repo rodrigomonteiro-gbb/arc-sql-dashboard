@@ -209,15 +209,15 @@ foreach ($sub in $subscriptions) {
     while($count -gt 0) {
         $count-=1
         Write-Output "VM-$($count)"
-        write-Output "VM - $($resources[$count].MachineName)"
+        write-Output "VM - $($resources.MachineName[$count])"
         $setID = @{
-            MachineName = $resources[$count].MachineName
-            Name = $resources[$count].extensionName
-            ResourceGroup = $resources[$count].resourceGroup
-            Location = $resources[$count].location
-            SubscriptionId = $resources[$count].subscriptionId
-            Publisher = $resources[$count].extensionPublisher
-            ExtensionType = $resources[$count].extensionType
+            MachineName = $resources.MachineName][$count]
+            Name = $resources.extensionName[$count]
+            ResourceGroup = $resources.resourceGroup[$count]
+            Location = $resources.location[$count]
+            SubscriptionId = $resources.subscriptionId[$count]
+            Publisher = $resources.extensionPublisher[$count]
+            ExtensionType = $resources.extensionType[$count]
         }
 
         write-Output "VM - $($setID.MachineName)"
