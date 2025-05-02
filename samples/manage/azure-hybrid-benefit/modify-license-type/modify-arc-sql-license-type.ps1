@@ -230,7 +230,7 @@ foreach ($sub in $subscriptions) {
         write-Output "   SubscriptionId - $($setID.SubscriptionId)"
         write-Output "   ExtensionType - $($setID.ExtensionType)"
         
-        try{
+        
         $WriteSettings = $false
         $settings = @{}
         $settings = $resources[$count].properties.settings | ConvertTo-Json | ConvertFrom-Json
@@ -289,8 +289,4 @@ foreach ($sub in $subscriptions) {
             }
         }
     }
-}
-catch{
-    
-}
 }
