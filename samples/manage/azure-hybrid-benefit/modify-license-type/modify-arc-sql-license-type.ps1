@@ -159,7 +159,7 @@ foreach ($sub in $subscriptions) {
     if ($sub.State -ne "Enabled") {continue}
 
     try {
-        Set-AzContext -SubscriptionId $sub.Id -Tenant $tenantID
+        Set-AzContext -SubscriptionId $sub.Id #Removed TenantID by Sunil
     }catch {
         write-host "Invalid subscription: $($sub.Id)"
         {continue}
