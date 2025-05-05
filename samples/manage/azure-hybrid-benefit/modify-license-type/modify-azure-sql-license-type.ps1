@@ -212,10 +212,10 @@ foreach ($sub in $subscriptions) {
         try {
             Write-Output "Seeking SQL Virtual Machines that require a license update to $SqlVmLicenseType..."
             $sqlVmQuery = if ($rgFilter) {
-                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && $rgFilter ]"
+                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && sqlServerLicenseType!= 'DR' && $rgFilter ]"
             }
             else {
-                "[?sqlServerLicenseType!='${SqlVmLicenseType}' ]"
+                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && sqlServerLicenseType!= 'DR']"
             }
 
 
