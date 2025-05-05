@@ -293,8 +293,8 @@ if($RunMode -eq "Single") {
         $arcparam = @()
         foreach ($arg in $scriptUrls.Arc.Args.Keys) {
             if ("" -ne $scriptUrls.Arc.Args[$arg] -and $null -ne $scriptUrls.Arc.Args[$arg]) {
-                if($scriptUrls.Arc.Args[$arg] -eq "True" -or $scriptUrls.Arc.Args[$arg] -eq "False") {
-                    if($scriptUrls.Arc.Args[$arg] -eq "True"){
+                if($scriptUrls.Arc.Args[$arg] -eq $true-or $scriptUrls.Arc.Args[$arg] -eq $false) {
+                    if($scriptUrls.Arc.Args[$arg] -eq $true){
                         $arcparam+="-$($arg)"
                     }
                 }else{
@@ -322,8 +322,8 @@ if($RunMode -eq "Single") {
         $azureparam = @()
         foreach ($arg in $scriptUrls.Azure.Args.Keys) {
             if ("" -ne $scriptUrls.Azure.Args[$arg] -and $null -ne $scriptUrls.Azure.Args[$arg]) {
-                if($scriptUrls.Azure.Args[$arg] -eq "True" -or $scriptUrls.Azure.Args[$arg] -eq "False") {
-                    if($scriptUrls.Azure.Args[$arg] -eq "True"){
+                if($scriptUrls.Azure.Args[$arg] -eq $true -or $scriptUrls.Azure.Args[$arg] -eq $false) {
+                    if($scriptUrls.Azure.Args[$arg] -eq $true){
                         $azureparam+="-$($arg)"
                     }
                 }else{
