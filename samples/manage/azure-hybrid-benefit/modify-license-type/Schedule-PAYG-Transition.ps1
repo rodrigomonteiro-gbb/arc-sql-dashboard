@@ -164,8 +164,8 @@ $scriptUrls = @{
     Azure = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
         Args = @{
-            Force_Start_On_Resources = $false
             SubId                     = [string]$targetSubscription
+            Force_Start_On_Resources  = $false
             ResourceGroup             = [string]$targetResourceGroup
             LicenseType               = $AzureLicenseType
         }
