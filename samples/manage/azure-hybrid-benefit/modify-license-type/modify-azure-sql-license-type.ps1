@@ -42,17 +42,20 @@ This automation helps ensure that your licensing configuration is consistent acr
 
 param (
     [Parameter(Mandatory = $false)]
-    [string] $SubId,
+    [string] $SubId=$null,
     
     [Parameter(Mandatory = $false)]
-    [string] $ResourceGroup,
+    [string] $ResourceGroup=$null,
     
     [Parameter(Mandatory = $false)]
     [ValidateSet("LicenseIncluded", "BasePrice", IgnoreCase = $false)]
     [string] $LicenseType = "LicenseIncluded",
     
     [Parameter(Mandatory = $false)]
-    [switch] $Force_Start_On_Resources
+    [switch] $Force_Start_On_Resources,
+
+    [Parameter (Mandatory= $false)]
+    [hashtable] $tags=@{}
 )
 
 # Suppress unnecessary logging output
@@ -155,7 +158,7 @@ try {
         Write-Output "Gathering subscriptions from CSV file: $SubId"
         $subscriptions = Import-Csv -Path $SubId
     }
-    elseif ($SubId) {
+    elseif (($null -ne $SubId) -and $SubId -ne "") {
         Write-Output "Gathering subscription details for: $SubId"
         $subscriptions = @(az account show --subscription $SubId --output json | ConvertFrom-Json)
     }
@@ -173,6 +176,18 @@ catch {
 $rgFilter = if ($ResourceGroup) { "resourceGroup=='$ResourceGroup'" } else { "" }
 $scriptStartTime = Get-Date
 Write-Output "Our adventure begins at: $scriptStartTime`n"
+$tagsFilter = $null
+if($tags) {
+    $tagsFilter += " && "
+    $tagcount = $tags.Keys.Count
+    foreach ($tag in $tags.Keys) {
+        $tagcount --
+        $tagsFilter += " tags.$($tag) != '$($tags[$tag])' "
+        if($tagcount -gt 0) {
+            $tagsFilter += " && "
+        }
+    }
+}
 
 # Process each subscription.
 foreach ($sub in $subscriptions) {
@@ -189,6 +204,7 @@ foreach ($sub in $subscriptions) {
         } else {
             Write-Output "SQL VM License Type: AHUB"
         }#>
+
         Write-Output "License Type: $LicenseType"
         az account set --subscription $sub.id
 
@@ -196,29 +212,38 @@ foreach ($sub in $subscriptions) {
         try {
             Write-Output "Seeking SQL Virtual Machines that require a license update to $SqlVmLicenseType..."
             $sqlVmQuery = if ($rgFilter) {
-                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && $rgFilter]"
+                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && $rgFilter ]"
             }
             else {
-                "[?sqlServerLicenseType!='${SqlVmLicenseType}']"
+                "[?sqlServerLicenseType!='${SqlVmLicenseType}' ]"
             }
+
+
             Write-Output "Seeking SQL Virtual Machines with filter $sqlVmQuery..."
             $sqlVMs = az sql vm list --query $sqlVmQuery -o json | ConvertFrom-Json
             $sqlVmsToUpdate = [System.Collections.ArrayList]::new()
 
             foreach ($sqlvm in $sqlVMs) {
-                $vmStatus = az vm get-instance-view --resource-group $sqlvm.resourceGroup --name $sqlvm.name --query "{Name:name, ResourceGroup:resourceGroup, PowerState:instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]}" -o json | ConvertFrom-Json
-                if ($vmStatus.PowerState -eq "VM running") {
-                    Write-Output "Updating SQL VM '$($sqlvm.name)' in RG '$($sqlvm.resourceGroup)' to license type '$SqlVmLicenseType'..."
-                    $result = az sql vm update -n $sqlvm.name -g $sqlvm.resourceGroup --license-type $SqlVmLicenseType -o json | ConvertFrom-Json
-                    $finalStatus += $result
-                    $report["SQLVMUpdated"] += $sqlvm.name
+
+                if($null -ne (az vm list --query "[?name=='$sqlvm.name' && resourceGroup=='$sqlvm.resourceGroup' ]"))
+                {
+                    $vmStatus = az vm get-instance-view --resource-group $sqlvm.resourceGroup --name $sqlvm.name --query "{Name:name, ResourceGroup:resourceGroup, PowerState:instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]}" -o json | ConvertFrom-Json
+                    if ($vmStatus.PowerState -eq "VM running") {
+                        Write-Output "Updating SQL VM '$($sqlvm.name)' in RG '$($sqlvm.resourceGroup)' to license type '$SqlVmLicenseType'..."
+                        $result = az sql vm update -n $sqlvm.name -g $sqlvm.resourceGroup --license-type $SqlVmLicenseType -o json | ConvertFrom-Json
+                        $finalStatus += $result
+                        $report["SQLVMUpdated"] += $sqlvm.name
+                    }
+                    else {
+                        if ($Force_Start_On_Resources) {
+                            Write-Output "SQL VM '$($sqlvm.name)' is not running. Forcing start to update license..."
+                            az vm start --resource-group $sqlvm.resourceGroup --name $sqlvm.name --no-wait yes
+                            $sqlVmsToUpdate.Add($sqlvm) | Out-Null
+                        }
+                    }
                 }
                 else {
-                    if ($Force_Start_On_Resources) {
-                        Write-Output "SQL VM '$($sqlvm.name)' is not running. Forcing start to update license..."
-                        az vm start --resource-group $sqlvm.resourceGroup --name $sqlvm.name --no-wait yes
-                        $sqlVmsToUpdate.Add($sqlvm) | Out-Null
-                    }
+                    Write-Output "SQL VM '$($sqlvm.name)' in RG '$($sqlvm.resourceGroup)' Skipping because of tags ($tags)..."
                 }
             }
         }

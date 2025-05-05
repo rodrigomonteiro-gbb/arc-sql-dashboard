@@ -41,7 +41,9 @@ param (
     [ValidateSet("Yes","No", IgnoreCase=$false)]
     [string] $EnableESU,
     [Parameter (Mandatory= $false)]
-    [switch] $Force
+    [switch] $Force,
+    [Parameter (Mandatory= $false)]
+    [hashtable] $tags
 )
 function Connect-Azure {
     [CmdletBinding()]
@@ -185,12 +187,31 @@ foreach ($sub in $subscriptions) {
     Write-Output "Collecting list of resources to update"
     $query = "
     resources
-    | where type =~ 'microsoft.hybridcompute/machines/extensions'
+    |  where type =~ 'microsoft.hybridcompute/machines/extensions'
     | where subscriptionId =~ '$($sub.Id)'
-    | extend extensionPublisher = tostring(properties.publisher), extensionType = tostring(properties.type), provisioningState = tostring(properties.provisioningState)
+    | extend extensionPublisher = tostring(properties.publisher), 
+    extensionType = tostring(properties.type), provisioningState = tostring(properties.provisioningState)
     | parse id with * '/providers/Microsoft.HybridCompute/machines/' machineName '/extensions/' *
     | where extensionPublisher =~ 'Microsoft.AzureData'
-    | where provisioningState =~ 'Succeeded'"
+    | where provisioningState =~ 'Succeeded'
+    | join kind=leftouter (
+    resources
+    | where type == 'microsoft.azurearcdata/sqlserverinstances'
+    | project machineName= name, edition = properties.edition, mytags = tags"
+
+    if($tags) {
+        $query += "| where "
+        $tagcount = $tags.Keys.Count
+        foreach ($tag in $tags.Keys) {
+            $tagcount --
+            $query += "(mytags['$($tag)'] != '$($tags[$tag])')"
+            if($tagcount -gt 0) {
+                $query += " and "
+            }
+        }
+    }
+
+    $query += ") on machineName"
     
     if ($ResourceGroup) {
         $query += "| where resourceGroup =~ '$($ResourceGroup)'"
@@ -201,8 +222,9 @@ foreach ($sub in $subscriptions) {
     } 
     
     $query += "
-    | project machineName, extensionName = name, resourceGroup, location, subscriptionId, extensionPublisher, extensionType, properties,provisioningState
+    | project machineName, extensionName = name, resourceGroup, location, subscriptionId, extensionPublisher, extensionType, properties,provisioningState, edition
     "
+    $query
     $resources = Search-AzGraph -Query "$($query)" 
     Write-Output "Found $($resources.Count) resource(s) to update"
     $count = $resources.Count
@@ -219,6 +241,7 @@ foreach ($sub in $subscriptions) {
             SubscriptionId = $resources[$count].subscriptionId
             Publisher = $resources[$count].extensionPublisher
             ExtensionType = $resources[$count].extensionType
+            Edition = $resources[$count].edition
         }
 
         write-Output "VM - $($setID.MachineName)"
@@ -257,6 +280,10 @@ foreach ($sub in $subscriptions) {
                 }
             }
             
+            if ($setID.Edition -eq "Express") {
+                $LicenseType = "LicenseOnly"
+            }
+
             if ($EnableESU) {
                 if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($EnableESU -eq "No")) {
                     $ext.Setting["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
