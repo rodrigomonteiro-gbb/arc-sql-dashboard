@@ -43,7 +43,7 @@ param (
     [Parameter (Mandatory= $false)]
     [switch] $Force,
     [Parameter (Mandatory= $false)]
-    [hashtable] $ExclusionTags
+    [object] $ExclusionTags
 )
 function Connect-Azure {
     [CmdletBinding()]
@@ -113,6 +113,15 @@ function Connect-Azure {
 
 }
 
+# Convert to hashtable explicitly
+$tagTable = @{}
+if($ExclusionTags.GetType().Name -eq "Hashtable"){
+    $tagTable = $ExclusionTags    
+}else{
+    ($ExclusionTags | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
+        $tagTable[$_.Name] = $_.Value
+    }
+}
 
 # Ensure connection with both PowerShell and CLI.
 Connect-Azure
@@ -199,12 +208,12 @@ foreach ($sub in $subscriptions) {
     | where type == 'microsoft.azurearcdata/sqlserverinstances'
     | project machineName= name, edition = properties.edition, mytags = tags"
 
-    if($ExclusionTags) {
+    if($tagTable) {
         $query += "| where "
-        $tagcount = $ExclusionTags.Keys.Count
-        foreach ($tag in $ExclusionTags.Keys) {
+        $tagcount = $tagTable.Keys.Count
+        foreach ($tag in $tagTable.Keys) {
             $tagcount --
-            $query += "(mytags['$($tag)'] != '$($ExclusionTags[$tag])')"
+            $query += "(mytags['$($tag)'] != '$($tagTable[$tag])')"
             if($tagcount -gt 0) {
                 $query += " and "
             }

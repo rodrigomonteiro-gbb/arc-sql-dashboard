@@ -55,7 +55,7 @@ param (
     [switch] $Force_Start_On_Resources,
 
     [Parameter (Mandatory= $false)]
-    [hashtable] $ExclusionTags=@{}
+    [object] $ExclusionTags
 )
 
 # Suppress unnecessary logging output
@@ -143,6 +143,15 @@ $report = @{
     "InstancePoolUpdated" = @()
     "ADFSSISUpdated" = @()
 }
+# Convert to hashtable explicitly
+$tagTable = @{}
+if($ExclusionTags.GetType().Name -eq "Hashtable"){
+    $tagTable = $ExclusionTags    
+}else{
+    ($ExclusionTags | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
+        $tagTable[$_.Name] = $_.Value
+    }
+}
 
 # Ensure connection with both PowerShell and CLI.
 Connect-Azure
@@ -177,12 +186,12 @@ $rgFilter = if ($ResourceGroup) { "resourceGroup=='$ResourceGroup'" } else { "" 
 $scriptStartTime = Get-Date
 Write-Output "Our adventure begins at: $scriptStartTime`n"
 $tagsFilter = $null
-if($ExclusionTags.Keys.Count -gt 0) {
+if($tagTable.Keys.Count -gt 0) {
     $tagsFilter += " && "
-    $tagcount = $ExclusionTags.Keys.Count
-    foreach ($tag in $ExclusionTags.Keys) {
+    $tagcount = $tagTable.Keys.Count
+    foreach ($tag in $tagTable.Keys) {
         $tagcount --
-        $tagsFilter += " tags.$($tag) != '$($ExclusionTags[$tag])' "
+        $tagsFilter += " tags.$($tag) != '$($tagTable[$tag])' "
         if($tagcount -gt 0) {
             $tagsFilter += " && "
         }
