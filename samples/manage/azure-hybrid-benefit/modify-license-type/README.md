@@ -33,9 +33,10 @@ The script accepts the following command line parameters:
 |`-RunAt` |`YYYY-MM-DD HH:MM:SS` |*Optional*: Sets the transition time in UTC time zone. E.g. 2025-05-01 14:00:00 means May 1, 2025 at 2pm UTC time. If not specified, the transition will be executed immediately.|
 |`-UsePcoreLicense` | `Yes`, `No` |*Optional*. Passed to Arc script to control PCore licensing behavior. Set to `No` if not specified.|
 |`-AutomationAccount`| `<name>`|*Required* if `-RunAt` is specified. The script will automatically create an automation account with this name unless one with this name alreday exists. It will be used for the “General” runbook import operation. |
+|`-AutomationAccResourceGroupName`| `<name>`|*Required* if `-RunAt` is specified. The script will automatically create an automation account in this resource group with this name specified on `-AutomationAccount` unless one with this name alreday exists. It will be used for the “General” runbook import operation. |
 |`-Location`|`<region>`|*Required* if `-RunAt` is specified. Azure region for the “General” runbook import operation.|
 |`-ExclusionTag`|`{"name":"value","name":"value"}`|*Optional*. Specifies the tag name and value to exclude the tagged offline VMs from the forced activation during the transition |
-
+Location
 <sup>1</sup>You can create a .csv file using the following command and then edit to remove the subscriptions you don't  want to scan.
 ```PowerShell
 Get-AzSubscription | Export-Csv .\mysubscriptions.csv -NoTypeInformation

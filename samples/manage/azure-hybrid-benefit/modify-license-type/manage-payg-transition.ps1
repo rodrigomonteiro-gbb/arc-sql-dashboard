@@ -158,6 +158,10 @@ if($null -ne $RunAt -and $RunAt -ne "") {
    $targetDate = Convert-ToDateTime -InputString $RunAt
     $Time = $targetDate.ToString("h:mmtt")
     $DayOfWeek=$targetDate.DayOfWeek
+    if ($null-eq $Location -or $Location -eq "") {
+        Write-Output "Location is requires for Schedule operations pleas euse the -Location parameter"
+        exit
+    }
 }
 <# For Prod Deployment
 $git = "sql-server-samples"
