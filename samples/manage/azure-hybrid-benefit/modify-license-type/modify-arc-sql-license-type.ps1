@@ -205,6 +205,7 @@ foreach ($sub in $subscriptions) {
     | parse id with * '/providers/Microsoft.HybridCompute/machines/' machineName '/extensions/' *
     | where extensionPublisher =~ 'Microsoft.AzureData'
     | where provisioningState =~ 'Succeeded'
+    | where properties.settings.LicenseType!='$LicenseType'
     | join kind=leftouter (
     resources
     | where type == 'microsoft.azurearcdata/sqlserverinstances'
@@ -267,13 +268,13 @@ foreach ($sub in $subscriptions) {
             {
                 if($sqlvm.Tags[$tag] -eq $tagTable[$tag]){
                     $excludedByTags=$true
-                    write-Output "   Exclusion tag $($tag) has a different value. Skipping..."
+                    write-Output "Exclusion tag $($tag):$tagTable[$tag]. Skipping..."
                     Break;
                 }
             }
         }
         if(!$excludedByTags){
-            write-Output "Not Exclusion tag $($tag) has a different value. Skipping..."
+           
         
         $WriteSettings = $false
         $settings = @{}
