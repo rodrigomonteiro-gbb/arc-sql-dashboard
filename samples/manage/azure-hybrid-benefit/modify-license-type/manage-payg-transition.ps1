@@ -149,12 +149,14 @@ function Convert-ToDateTime {
 
     throw "Invalid date format. Supported: 'YYYY-MM-DD HH:MM:SS' (24-hour) or 'YYYY-MM-DD hh:MM:SS AM/PM' (12-hour)."
 }
-$targetDate = Convert-ToDateTime -InputString $RunAt
-$Time = $targetDate.ToString("h:mmtt")
-$DayOfWeek=$targetDate.DayOfWeek
-$RunMode = "Single  "
+$targetDate = $null
+$Time = $null
+$DayOfWeek=$null
+$RunMode = "Single"
 if($null -ne $RunAt -and $RunAt -ne "") {
-   $RunMode = "Scheduled"
+   $targetDate = Convert-ToDateTime -InputString $RunAt
+    $Time = $targetDate.ToString("h:mmtt")
+    $DayOfWeek=$targetDate.DayOfWeek
 }
 <# For Prod Deployment
 $git = "sql-server-samples"
