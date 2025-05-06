@@ -199,12 +199,12 @@ foreach ($sub in $subscriptions) {
     | where type == 'microsoft.azurearcdata/sqlserverinstances'
     | project machineName= name, edition = properties.edition, mytags = tags"
 
-    if($tags) {
+    if($ExclusionTags) {
         $query += "| where "
-        $tagcount = $tags.Keys.Count
-        foreach ($tag in $tags.Keys) {
+        $tagcount = $ExclusionTags.Keys.Count
+        foreach ($tag in $ExclusionTags.Keys) {
             $tagcount --
-            $query += "(mytags['$($tag)'] != '$($tags[$tag])')"
+            $query += "(mytags['$($tag)'] != '$($ExclusionTags[$tag])')"
             if($tagcount -gt 0) {
                 $query += " and "
             }
@@ -318,3 +318,4 @@ foreach ($sub in $subscriptions) {
         }
     }
 }
+write-Output "Arc Update Script completed"
