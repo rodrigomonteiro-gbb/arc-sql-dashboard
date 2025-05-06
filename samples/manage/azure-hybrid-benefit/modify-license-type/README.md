@@ -34,7 +34,7 @@ The script accepts the following command line parameters:
 |`-UsePcoreLicense` | `Yes`, `No` |*Optional*. Passed to Arc script to control PCore licensing behavior. Set to `No` if not specified.|
 |`-AutomationAccount`| `<name>`|*Required* if `-RunAt` is specified. The script will automatically create an automation account with this name unless one with this name alreday exists. It will be used for the “General” runbook import operation. |
 |`-Location`|`<region>`|*Required* if `-RunAt` is specified. Azure region for the “General” runbook import operation.|
-|`-ExclusionTag`|`<name:value>`|*Optional*. Specifies the tag name and value to exclude the tagged offline VMs from the forced activation during the transition |
+|`-ExclusionTag`|`{"name":"value","name":"value"}`|*Optional*. Specifies the tag name and value to exclude the tagged offline VMs from the forced activation during the transition |
 
 <sup>1</sup>You can create a .csv file using the following command and then edit to remove the subscriptions you don't  want to scan.
 ```PowerShell
@@ -73,7 +73,7 @@ Switch all machines to pay-as-you-go in subscriptions listed in MySusbcriptions.
 ```powershell
 .\manage-payg-transition.ps1 `
 -SubId MySubscription.csv
--ExclusionTag DoNotActivate:True
+-ExclusionTag '{"DemoTag":"Demoscript","nouse":"true"}'
 ````
 
 ## Example 3 
