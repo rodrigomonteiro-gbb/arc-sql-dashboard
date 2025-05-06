@@ -24,10 +24,10 @@
 .PARAMETER UsePcoreLicense
     For **Arc** only. `"Yes"` or `"No"` to control PCore licensing behavior passed to the Arc runbook. Default: `"No"`.
 
-.PARAMETER targetResourceGroup
+.PARAMETER ResourceGroup
     (Optional) Name of the target resource group passed into the downstream runbook scripts.
 
-.PARAMETER targetSubscription
+.PARAMETER SubId
     (Optional) Subscription ID passed into the downstream runbook scripts.
 
 .PARAMETER AutomationAccResourceGroupName
@@ -65,8 +65,8 @@
       -RunMode Single `
       -cleanDownloads:$true `
       -UsePcoreLicense No `
-      -targetSubscription "00000000-0000-0000-0000-000000000000" `
-      -targetResourceGroup "MyRG" `
+      -SubId "00000000-0000-0000-0000-000000000000" `
+      -ResourceGroup "MyRG" `
       -AutomationAccResourceGroupName "MyAutoRG" `
       -AutomationAccountName "MyAutoAcct" `
       -Location "EastUS"
@@ -87,22 +87,15 @@ param(
     [ValidateSet("Arc","Azure","Both")]
     [string]$Target = "Both",
 
-    [Parameter(Mandatory, Position=0)]
-    [ValidateSet("Single","Scheduled")]
-    [string]$RunMode,
-
-    [Parameter(Mandatory = $false, Position=2)]
-    [bool]$cleanDownloads=$false,
-
     [Parameter (Mandatory= $false)]
     [ValidateSet("Yes","No", IgnoreCase=$false)]
     [string] $UsePcoreLicense="No",
 
     [Parameter(Mandatory=$false)]
-    [string]$targetResourceGroup=$null,
+    [string]$ResourceGroup=$null,
 
     [Parameter(Mandatory=$false)]
-    [string]$targetSubscription=$null,
+    [string]$SubId=$null,
 
     [Parameter(Mandatory=$false)]
     [string]$AutomationAccResourceGroupName="AutomationAccResourceGroupName",
@@ -114,10 +107,8 @@ param(
     [string]$Location=$null,
 
     [Parameter(Mandatory=$false)]
-    [string]$Time="8:00AM",
-    [Parameter(Mandatory=$false)]
-    [System.DayOfWeek] $DayOfWeek=[System.DayOfWeek]::Sunday,
-
+    [String ]$RunAt=$null,
+    
     [Parameter(Mandatory=$false)]
     [ValidateSet("BasePrice","LicenseIncluded","LicenseOnly", IgnoreCase=$false)]
     [string]$SQLLicenseType="PAYG",
@@ -129,6 +120,42 @@ param(
     [Parameter(Mandatory=$false)]
     [hashtable]$ExclusionTags=$null
 )
+function Convert-ToDateTime {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$InputString
+    )
+
+    # Define supported formats
+    $formats = @(
+        'yyyy-MM-dd HH:mm:ss',      # 24-hour format
+        'yyyy-MM-dd hh:mm:ss tt'    # 12-hour with AM/PM
+    )
+
+    # Handle edge case: 24:00:00
+    if ($InputString -match '^\d{4}-\d{2}-\d{2} 24:00:00$') {
+        $baseDate = [datetime]::ParseExact($InputString.Substring(0, 10), 'yyyy-MM-dd', $null)
+        return $baseDate.AddDays(1)
+    }
+
+    foreach ($format in $formats) {
+        try {
+            return [datetime]::ParseExact($InputString, $format, $null)
+        } catch {
+            # Try next format
+        }
+    }
+
+    throw "Invalid date format. Supported: 'YYYY-MM-DD HH:MM:SS' (24-hour) or 'YYYY-MM-DD hh:MM:SS AM/PM' (12-hour)."
+}
+$targetDate = Convert-ToDateTime -InputString $RunAt
+$Time = $targetDate.ToString("h:mmtt")
+$DayOfWeek=$targetDate.DayOfWeek
+$RunMode = "Single  "
+if($null -ne $RunAt -and $RunAt -ne "") {
+   $RunMode = "Scheduled"
+}
 <# For Prod Deployment
 $git = "sql-server-samples"
 $environment = "microsoft"
@@ -138,6 +165,7 @@ $environment = "rodrigomonteiro-gbb"
 # === Pre-compute LicenseType mappings ===
 $AzureLicenseType = $null
 $ArcLicenseType = $null
+$cleanDownloads=$false
 # For the Azure scripts
 switch ($SQLLicenseType) {
     'LicenseOnly' { $AzureLicenseType = 'BasePrice'; break }
@@ -160,16 +188,16 @@ $scriptUrls = @{
             ResourceGroupName       = "'$($AutomationAccResourceGroupName)'"
             AutomationAccountName   = $AutomationAccountName 
             Location                = $Location
-            targetResourceGroup     = $targetResourceGroup
-            targetSubscription      = $targetSubscription
+            ResourceGroup     = $ResourceGroup
+            SubId      = $SubId
         }
     }
     Azure = @{
         URL = "https://raw.githubusercontent.com/$($environment)/$($git)/refs/heads/master/samples/manage/azure-hybrid-benefit/modify-license-type/modify-azure-sql-license-type.ps1"
         Args = @{
-            SubId                     = [string]$targetSubscription
+            SubId                     = [string]$SubId
             Force_Start_On_Resources  = $false
-            ResourceGroup             = [string]$targetResourceGroup
+            ResourceGroup             = [string]$ResourceGroup
             LicenseType               = $AzureLicenseType
         }
     }
@@ -179,8 +207,8 @@ $scriptUrls = @{
             LicenseType             = $ArcLicenseType
             Force                   = $true
             UsePcoreLicense         = [string]$UsePcoreLicense
-            SubId                   = [string]$targetSubscription
-            ResourceGroup           = [string]$targetResourceGroup
+            SubId                   = [string]$SubId
+            ResourceGroup           = [string]$ResourceGroup
             EnableESU               = $EnableESU
         }
     }
@@ -221,8 +249,8 @@ function Invoke-RemoteScript {
     `$AutomationAccountName= '$AutomationAccountName' 
     $(if ($null -ne $Location -and $Location -ne "") { "`$Location= '$Location'" })
     $ExclusionTags
-    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "`$targetResourceGroup= '$targetResourceGroup'" })
-    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "`$targetSubscription= '$targetSubscription'" })
+    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "`$ResourceGroup= '$ResourceGroup'" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "`$SubId= '$SubId'" })
 "@
     if($Target -eq "Both" -or $Target -eq "Arc") {
 
@@ -236,23 +264,23 @@ function Invoke-RemoteScript {
         Write-Host "Downloading $scriptUrls.Azure.URL to $supportdest..."
         Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
 
-        $nextline = if(($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") -or ($null -ne $targetSubscription -and $targetSubscription -ne "")) {"``"}
-        $nextline2 = if(($null -ne $targetSubscription -and $targetSubscription -ne "")){"``"}
+        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
+        $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
         $wrapper += @"
 `$RunbookArg =@{
 LicenseType= 'PAYG'
 Force = `$true
 $(if ($null -ne $UsePcoreLicense) { "UsePcoreLicense='$UsePcoreLicense'" } else { "" })
-$(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId='$targetSubscription'" })
-$(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup='$targetResourceGroup'" })
+$(if ($null -ne $SubId -and $SubId -ne "") { "SubId='$SubId'" })
+$(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "ResourceGroup='$ResourceGroup'" })
 $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$ExclusionTags" })
 }
 
     $scriptname -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeArc' ``
     -RunbookPath '$(Split-Path $scriptUrls.Arc.URL -Leaf)' ``
     -RunbookArg `$RunbookArg $($nextline)
-    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
-    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
+    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId" })
 "@
 
     }
@@ -264,21 +292,21 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
         Write-Host "Downloading $($scriptUrls.Azure.URL) to $supportdest..."
         Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
 
-        $nextline = if(($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") -or ($null -ne $targetSubscription -and $targetSubscription -ne "")) {"``"}
-        $nextline2 = if(($null -ne $targetSubscription -and $targetSubscription -ne "")){"``"}
+        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
+        $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
         $wrapper += @"
 `$RunbookArg =@{
     Force_Start_On_Resources = `$true
-    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup= '$targetResourceGroup'" })
-    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId= '$targetSubscription'" })
+    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "ResourceGroup= '$ResourceGroup'" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "SubId= '$SubId'" })
     $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$ExclusionTags" })
 }
 
 $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
     -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'``
     -RunbookArg `$RunbookArg $($nextline)
-    $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "-targetResourceGroup `$targetResourceGroup $nextline2" })
-    $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "-targetSubscription `$targetSubscription" })
+    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId" })
         
 "@
 

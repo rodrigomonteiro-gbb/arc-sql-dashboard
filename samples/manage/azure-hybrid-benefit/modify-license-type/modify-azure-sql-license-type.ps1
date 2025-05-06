@@ -145,11 +145,13 @@ $report = @{
 }
 # Convert to hashtable explicitly
 $tagTable = @{}
-if($ExclusionTags.GetType().Name -eq "Hashtable"){
-    $tagTable = $ExclusionTags    
-}else{
-    ($ExclusionTags | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
-        $tagTable[$_.Name] = $_.Value
+if($null -ne $ExclusionTags){
+    if($ExclusionTags.GetType().Name -eq "Hashtable"){
+        $tagTable = $ExclusionTags    
+    }else{
+        ($ExclusionTags | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
+            $tagTable[$_.Name] = $_.Value
+        }
     }
 }
 
