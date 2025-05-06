@@ -210,7 +210,7 @@ foreach ($sub in $subscriptions) {
     | where type == 'microsoft.azurearcdata/sqlserverinstances'
     | project machineName= name, edition = properties.edition, mytags = tags"
 
-    if($tagTable.Keys.Count -gt 0) {
+    <#if($tagTable.Keys.Count -gt 0) {
         $query += "| where "
         $tagcount = $tagTable.Keys.Count
         foreach ($tag in $tagTable.Keys) {
@@ -220,7 +220,7 @@ foreach ($sub in $subscriptions) {
                 $query += " and "
             }
         }
-    }
+    }#>
 
     $query += ") on machineName"
     
@@ -260,7 +260,20 @@ foreach ($sub in $subscriptions) {
         write-Output "   Location - $($setID.Location)"
         write-Output "   SubscriptionId - $($setID.SubscriptionId)"
         write-Output "   ExtensionType - $($setID.ExtensionType)"
-        
+        $sqlvm = Get-AzConnectedMachine -Name $setID.MachineName -ResourceGroup $setID.ResourceGroup | Select-Object Name, Tags
+        $excludedByTags = $false
+        foreach ($tag in $tagTable.Keys){
+            if($sqlvm.Tags.ContainsKey($tag))
+            {
+                if($sqlvm.Tags[$tag] -eq $tagTable[$tag]){
+                    $excludedByTags=$true
+                    write-Output "   Exclusion tag $($tag) has a different value. Skipping..."
+                    Break;
+                }
+            }
+        }
+        if(!$excludedByTags){
+            write-Output "Not Exclusion tag $($tag) has a different value. Skipping..."
         
         $WriteSettings = $false
         $settings = @{}
@@ -327,6 +340,7 @@ foreach ($sub in $subscriptions) {
                 }
             }
         }
+    }
     }
 }
 write-Output "Arc Update Script completed"
