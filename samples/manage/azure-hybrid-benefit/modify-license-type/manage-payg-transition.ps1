@@ -154,6 +154,7 @@ $Time = $null
 $DayOfWeek=$null
 $RunMode = "Single"
 if($null -ne $RunAt -and $RunAt -ne "") {
+    $RunMode = "Scheduled"
    $targetDate = Convert-ToDateTime -InputString $RunAt
     $Time = $targetDate.ToString("h:mmtt")
     $DayOfWeek=$targetDate.DayOfWeek
@@ -249,6 +250,8 @@ function Invoke-RemoteScript {
     $wrapper += @"
     `$ResourceGroupName= '$($AutomationAccResourceGroupName)'
     `$AutomationAccountName= '$AutomationAccountName' 
+    $(if ($null -ne $Time -and $Time -ne "") { "`$Time= '$Time'" })
+    $(if ($null -ne $DayOfWeek -and $DayOfWeek -ne "") { "`$DayOfWeek= '$DayOfWeek'" })
     $(if ($null -ne $Location -and $Location -ne "") { "`$Location= '$Location'" })
     $ExclusionTags
     $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "`$ResourceGroup= '$ResourceGroup'" })
@@ -268,6 +271,8 @@ function Invoke-RemoteScript {
 
         $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
         $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
+        $nextline3 = if(($null -ne $Time -and $DayOfWeek -ne "")){"``"}
+        $nextline4 = if(($null -ne $DayOfWeek -ne "")){"``"}
         $wrapper += @"
 `$RunbookArg =@{
 LicenseType= 'PAYG'
@@ -282,7 +287,7 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
     -RunbookPath '$(Split-Path $scriptUrls.Arc.URL -Leaf)' ``
     -RunbookArg `$RunbookArg $($nextline)
     $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
-    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId $nextline3" })
 "@
 
     }
@@ -302,14 +307,14 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
     $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "ResourceGroup= '$ResourceGroup'" })
     $(if ($null -ne $SubId -and $SubId -ne "") { "SubId= '$SubId'" })
     $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$ExclusionTags" })
+    
 }
 
 $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
     -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'``
     -RunbookArg `$RunbookArg $($nextline)
     $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
-    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId" })
-        
+    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId $nextline3" })
 "@
 
     }
