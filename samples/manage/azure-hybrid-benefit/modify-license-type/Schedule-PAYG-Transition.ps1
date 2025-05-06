@@ -284,7 +284,7 @@ $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$
 
     }
     $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8
-    #.\runnow.ps1
+    .\runnow.ps1
 }
 $tagsFilter = @()
 if($null -ne $ExclusionTags) {
