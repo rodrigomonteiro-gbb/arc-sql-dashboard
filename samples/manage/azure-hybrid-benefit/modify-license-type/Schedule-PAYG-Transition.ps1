@@ -124,7 +124,10 @@ param(
     
     [Parameter (Mandatory= $false)]
     [ValidateSet("Yes","No", IgnoreCase=$false)]
-    [string] $EnableESU="No"
+    [string] $EnableESU="No",
+
+    [Parameter(Mandatory=$false)]
+    [hashtable]$ExclusionTags=$null
 )
 <# For Prod Deployment
 $git = "sql-server-samples"
@@ -199,7 +202,10 @@ function Invoke-RemoteScript {
         [string]$Target,
         [Parameter(Mandatory)]
         [ValidateSet("Single","Scheduled")]
-        [string]$RunMode
+        [string]$RunMode,
+
+        [Parameter(Mandatory=$false)]
+        [string]$ExclusionTags=$null
     )
     $fileName = Split-Path $Url -Leaf
     $dest     = Join-Path $downloadFolder $fileName
@@ -213,7 +219,8 @@ function Invoke-RemoteScript {
     $wrapper += @"
     `$ResourceGroupName= '$($AutomationAccResourceGroupName)'
     `$AutomationAccountName= '$AutomationAccountName' 
-    `$Location= '$Location'
+    $(if ($null -ne $Location -and $Location -ne "") { "`$Location= '$Location'" })
+    $ExclusionTags
     $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "`$targetResourceGroup= '$targetResourceGroup'" })
     $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "`$targetSubscription= '$targetSubscription'" })
 "@
@@ -238,6 +245,7 @@ Force = `$true
 $(if ($null -ne $UsePcoreLicense) { "UsePcoreLicense='$UsePcoreLicense'" } else { "" })
 $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId='$targetSubscription'" })
 $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup='$targetResourceGroup'" })
+$(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$ExclusionTags" })
 }
 
     $scriptname -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeArc' ``
@@ -263,7 +271,7 @@ $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "Resour
     Force_Start_On_Resources = `$true
     $(if ($null -ne $targetResourceGroup -and $targetResourceGroup -ne "") { "ResourceGroup= '$targetResourceGroup'" })
     $(if ($null -ne $targetSubscription -and $targetSubscription -ne "") { "SubId= '$targetSubscription'" })
-
+    $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$ExclusionTags" })
 }
 
 $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
@@ -276,12 +284,32 @@ $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$
 
     }
     $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8
-    .\runnow.ps1
+    #.\runnow.ps1
 }
+$tagsFilter = @()
+if($null -ne $ExclusionTags) {
 
+    $countTags = $ExclusionTags.Keys.Count
+    foreach ($tag in $ExclusionTags.Keys) {
+        $countTags--
+        $tagsFilter+="$($tag)= '$( $ExclusionTags[$tag])'"
+    }
+    $multilineString = $tagsFilter -join "`n"
+    $Tags = @"
+    `$ExclusionTags = @{
+    $($multilineString)
+    }
+"@
+}else{
+    $Tags = $null
+}
+Write-Host "Tags: $($Tags)"
 # === Single run: download & invoke the appropriate script(s) ===
 if($RunMode -eq "Single") {
     $wrapper = @()
+    if ($null -ne $Tags) {
+        $wrapper += $Tags
+    }
     if ($Target -eq "Both" -or $Target -eq "Arc") {
         $fileName = Split-Path $scriptUrls.Arc.URL -Leaf
         $dest     = Join-Path $downloadFolder $fileName
@@ -293,8 +321,8 @@ if($RunMode -eq "Single") {
         $arcparam = @()
         foreach ($arg in $scriptUrls.Arc.Args.Keys) {
             if ("" -ne $scriptUrls.Arc.Args[$arg] -and $null -ne $scriptUrls.Arc.Args[$arg]) {
-                if($scriptUrls.Arc.Args[$arg] -eq $true-or $scriptUrls.Arc.Args[$arg] -eq $false) {
-                    if($scriptUrls.Arc.Args[$arg] -eq $true){
+                if($scriptUrls.Arc.Args[$arg] -eq "True" -or $scriptUrls.Arc.Args[$arg] -eq "False") {
+                    if($scriptUrls.Arc.Args[$arg] -eq "True"){
                         $arcparam+="-$($arg)"
                     }
                 }else{
@@ -305,7 +333,10 @@ if($RunMode -eq "Single") {
         $count = $arcparam.Count
         foreach ($arg in $arcparam) {
             $count--
-            $wrapper+="$($arg) $(if ($count -gt 0) { '`'})"
+            $wrapper+="$($arg) $(if ($count -gt 0 -or ($null -ne $Tags)) { '`'})"
+        }
+        if ($null -ne $Tags) {
+            $wrapper+="-ExclusionTags `$ExclusionTags"
         }
 
     }
@@ -334,7 +365,10 @@ if($RunMode -eq "Single") {
         $count = $azureparam.Count
         foreach ($arg in $azureparam) {
             $count--
-            $wrapper+="$($arg) $(if ($count -gt 0) { '`'})"
+            $wrapper+="$($arg) $(if ($count -gt 0 -or ($null -ne $Tags)) { '`'})"
+        }
+        if ($null -ne $Tags) {
+            $wrapper+="-ExclusionTags `$ExclusionTags"
         }
     }
 
@@ -344,7 +378,7 @@ if($RunMode -eq "Single") {
     Write-Host "Single run completed."
 }else{
     Write-Host "Run 'Scheduled'."
-    Invoke-RemoteScript -Url $scriptUrls.General.URL -Target $Target -RunMode $RunMode
+    Invoke-RemoteScript -Url $scriptUrls.General.URL -Target $Target -RunMode $RunMode -ExclusionTags $Tags
 }
 # === Cleanup downloaded files & folder ===
 if($cleanDownloads -eq $true) {
