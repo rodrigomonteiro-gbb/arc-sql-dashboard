@@ -55,7 +55,7 @@ param (
     [switch] $Force_Start_On_Resources,
 
     [Parameter (Mandatory= $false)]
-    [hashtable] $tags=@{}
+    [hashtable] $ExclusionTags=@{}
 )
 
 # Suppress unnecessary logging output
@@ -177,12 +177,12 @@ $rgFilter = if ($ResourceGroup) { "resourceGroup=='$ResourceGroup'" } else { "" 
 $scriptStartTime = Get-Date
 Write-Output "Our adventure begins at: $scriptStartTime`n"
 $tagsFilter = $null
-if($tags) {
+if($ExclusionTags.Keys.Count -gt 0) {
     $tagsFilter += " && "
-    $tagcount = $tags.Keys.Count
-    foreach ($tag in $tags.Keys) {
+    $tagcount = $ExclusionTags.Keys.Count
+    foreach ($tag in $ExclusionTags.Keys) {
         $tagcount --
-        $tagsFilter += " tags.$($tag) != '$($tags[$tag])' "
+        $tagsFilter += " tags.$($tag) != '$($ExclusionTags[$tag])' "
         if($tagcount -gt 0) {
             $tagsFilter += " && "
         }
@@ -212,10 +212,9 @@ foreach ($sub in $subscriptions) {
         try {
             Write-Output "Seeking SQL Virtual Machines that require a license update to $SqlVmLicenseType..."
             $sqlVmQuery = if ($rgFilter) {
-                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && sqlServerLicenseType!= 'DR' && $rgFilter ]"
-            }
-            else {
-                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && sqlServerLicenseType!= 'DR']"
+                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && sqlServerLicenseType!= 'DR' && $rgFilter $tagsFilter]"
+            } else {
+                "[?sqlServerLicenseType!='${SqlVmLicenseType}' && sqlServerLicenseType!= 'DR' $tagsFilter]"
             }
 
 
@@ -225,7 +224,7 @@ foreach ($sub in $subscriptions) {
 
             foreach ($sqlvm in $sqlVMs) {
 
-                if($null -ne (az vm list --query "[?name=='$sqlvm.name' && resourceGroup=='$sqlvm.resourceGroup' ]"))
+                if($null -ne (az vm list --query "[?name=='$sqlvm.name' && resourceGroup=='$sqlvm.resourceGroup' $tagsFilter]"))
                 {
                     $vmStatus = az vm get-instance-view --resource-group $sqlvm.resourceGroup --name $sqlvm.name --query "{Name:name, ResourceGroup:resourceGroup, PowerState:instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]}" -o json | ConvertFrom-Json
                     if ($vmStatus.PowerState -eq "VM running") {
@@ -251,16 +250,15 @@ foreach ($sub in $subscriptions) {
             Write-Error "An error occurred while updating SQL VMs: $_"
         }
 
-        # --- Section: Update SQL Managed Instances (Stopped then Ready) ---
+        # --- Section: Update SQL Managed Instances (Stopped then Ready) "hybridSecondaryUsage": "Passive"---
         $sqlMIsToUpdate = [System.Collections.ArrayList]::new()
         try {
             if ($Force_Start_On_Resources) {
                 Write-Output "Seeking SQL Managed Instances that are stopped and require an update to $LicenseType..."
                 $miQuery = if ($rgFilter) {
-                    "[?licenseType!='${LicenseType}' && state!='Ready' && $rgFilter].{Name:name, State:state, ResourceGroup:resourceGroup}"
-                }
-                else {
-                    "[?licenseType!='${LicenseType}' && state!='Ready'].{Name:name, State:state, ResourceGroup:resourceGroup}"
+                    "[?licenseType!='${LicenseType}' && hybridSecondaryUsage!='Passive' && state!='Ready' && $rgFilter $tagsFilter].{Name:name, State:state, ResourceGroup:resourceGroup}"
+                } else {
+                    "[?licenseType!='${LicenseType}' && hybridSecondaryUsage!='Passive' && state!='Ready' $tagsFilter].{Name:name, State:state, ResourceGroup:resourceGroup}"
                 }
                 Write-Output "Seeking SQL Managed Instances with Filter $miQuery..."
                 $offSQLMIs = az sql mi list --query $miQuery -o json | ConvertFrom-Json
@@ -275,10 +273,9 @@ foreach ($sub in $subscriptions) {
 
             Write-Output "Processing SQL Managed Instances that are running to $LicenseType..."
             $miRunningQuery = if ($rgFilter) {
-                "[?licenseType!='${LicenseType}' && state=='Ready' && $rgFilter]"
-            }
-            else {
-                "[?licenseType!='${LicenseType}' && state=='Ready']"
+                "[?licenseType!='${LicenseType}' && hybridSecondaryUsage!='Passive' && state=='Ready' && $rgFilter $tagsFilter]"
+            } else {
+                "[?licenseType!='${LicenseType}' && hybridSecondaryUsage!='Passive' && state=='Ready' $tagsFilter]"
             }
             Write-Output "Processing SQL Managed Instances that are running with filter $miRunningQuery..."
             $runningMIs = az sql mi list --query $miRunningQuery -o json | ConvertFrom-Json
@@ -302,7 +299,7 @@ foreach ($sub in $subscriptions) {
             foreach ($server in $servers) {
                 # Update SQL Databases
                 Write-Output "Scanning SQL Databases on server '$($server.name)'..."
-                $dbs = az sql db list --resource-group $server.resourceGroup --server $server.name --query "[?licenseType!='$($LicenseType)' && licenseType!=null]" -o json | ConvertFrom-Json
+                $dbs = az sql db list --resource-group $server.resourceGroup --server $server.name --query "[?licenseType!='$($LicenseType)' && licenseType!=null  $tagsFilter]" -o json | ConvertFrom-Json
                 foreach ($db in $dbs) {
                     Write-Output "Updating SQL Database '$($db.name)' on server '$($server.name)' to license type '$LicenseType'..."
                     $result = az sql db update --name $db.name --server $server.name --resource-group $server.resourceGroup --set licenseType=$LicenseType -o json | ConvertFrom-Json
@@ -313,7 +310,7 @@ foreach ($sub in $subscriptions) {
                 # Update Elastic Pools
                 try {
                     Write-Output "Scanning Elastic Pools on server '$($server.name)'..."
-                    $elasticPools = az sql elastic-pool list --resource-group $server.resourceGroup --server $server.name --query "[?licenseType!='$($LicenseType)' && licenseType!=null]" --only-show-errors -o json | ConvertFrom-Json
+                    $elasticPools = az sql elastic-pool list --resource-group $server.resourceGroup --server $server.name --query "[?licenseType!='$($LicenseType)' && licenseType!=null  $tagsFilter]" --only-show-errors -o json | ConvertFrom-Json
                     foreach ($pool in $elasticPools) {
                         Write-Output "Updating Elastic Pool '$($pool.name)' on server '$($server.name)' to license type '$LicenseType'..."
                         $result = az sql elastic-pool update --name $pool.name --server $server.name --resource-group $server.resourceGroup --set licenseType=$LicenseType --only-show-errors -o json | ConvertFrom-Json -ErrorAction SilentlyContinue
@@ -333,7 +330,7 @@ foreach ($sub in $subscriptions) {
         # --- Section: Update SQL Instance Pools ---
         try {
             Write-Output "Searching for SQL Instance Pools that require a license update..."
-            $instancePoolsQuery = if ($rgFilter) { "[?$rgFilter]" } else { "[]" }
+            $instancePoolsQuery = if ($rgFilter) { "[?licenseType!='${LicenseType}' && $rgFilter $tagsFilter]" } else { "[?licenseType!='${LicenseType}' $tagsFilter]" }
             $instancePools = az sql instance-pool list --query $instancePoolsQuery -o json | ConvertFrom-Json
             $poolsToUpdate = $instancePools | Where-Object { $_.licenseType -ne $LicenseType }
             foreach ($pool in $poolsToUpdate) {

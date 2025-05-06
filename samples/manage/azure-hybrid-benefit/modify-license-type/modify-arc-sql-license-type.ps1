@@ -43,7 +43,7 @@ param (
     [Parameter (Mandatory= $false)]
     [switch] $Force,
     [Parameter (Mandatory= $false)]
-    [hashtable] $tags
+    [hashtable] $ExclusionTags
 )
 function Connect-Azure {
     [CmdletBinding()]
