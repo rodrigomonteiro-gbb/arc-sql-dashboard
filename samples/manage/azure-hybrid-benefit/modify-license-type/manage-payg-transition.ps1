@@ -269,8 +269,8 @@ function Invoke-RemoteScript {
         Write-Host "Downloading $scriptUrls.Azure.URL to $supportdest..."
         Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
 
-        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
-        $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
+        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "") -or ($null -ne $Time -and $DayOfWeek -ne "") -or ($null -ne $DayOfWeek -ne "")) {"``"}
+        $nextline2 = if(($null -ne $SubId -and $SubId -ne "") -or ($null -ne $Time -and $DayOfWeek -ne "") -or ($null -ne $DayOfWeek -ne "")){"``"}
         $nextline3 = if(($null -ne $Time -and $DayOfWeek -ne "")){"``"}
         $nextline4 = if(($null -ne $DayOfWeek -ne "")){"``"}
         $wrapper += @"
@@ -286,9 +286,11 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
     $scriptname -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeArc' ``
     -RunbookPath '$(Split-Path $scriptUrls.Arc.URL -Leaf)' ``
     -RunbookArg `$RunbookArg $($nextline)
-    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
-    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId $nextline3" })
 "@
+        if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { $wrapper +="-ResourceGroup `$ResourceGroup $nextline2" }
+        if ($null -ne $SubId -and $SubId -ne "") { $wrapper +="-SubId `$SubId $nextline3" }
+        if ($null -ne $Time -and $Time -ne "") { $wrapper += "-Time `$Time $nextline4" }
+        if ($null -ne $DayOfWeek -and $DayOfWeek -ne "") { $wrapper +="-DayOfWeek `$DayOfWeek " }
 
     }
 
@@ -299,8 +301,7 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
         Write-Host "Downloading $($scriptUrls.Azure.URL) to $supportdest..."
         Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
 
-        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
-        $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
+
         $wrapper += @"
 `$RunbookArg =@{
     Force_Start_On_Resources = `$true
@@ -313,11 +314,12 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
 $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
     -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'``
     -RunbookArg `$RunbookArg $($nextline)
-    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
-    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId $nextline3" })
 "@
-
-    }
+    if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { $wrapper +="-ResourceGroup `$ResourceGroup $nextline2" }
+    if ($null -ne $SubId -and $SubId -ne "") { $wrapper +="-SubId `$SubId $nextline3" }
+    if ($null -ne $Time -and $Time -ne "") { $wrapper += "-Time `$Time $nextline4" }
+    if ($null -ne $DayOfWeek -and $DayOfWeek -ne "") { $wrapper +="-DayOfWeek `$DayOfWeek " }
+}
     $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8
     .\runnow.ps1
 }
