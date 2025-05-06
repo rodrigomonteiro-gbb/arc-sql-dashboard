@@ -268,7 +268,8 @@ foreach ($sub in $subscriptions) {
             {
                 if($sqlvm.Tags[$tag] -eq $tagTable[$tag]){
                     $excludedByTags=$true
-                    write-Output "Exclusion tag $($tag):$tagTable[$tag]. Skipping..."
+                    $value = $tagTable[$tag]
+                    write-Output "Exclusion tag $($tag):$value. Skipping..."
                     Break;
                 }
             }
