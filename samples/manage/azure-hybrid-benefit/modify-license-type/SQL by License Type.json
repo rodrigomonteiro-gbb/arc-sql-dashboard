@@ -1,0 +1,721 @@
+{
+  "properties": {
+    "lenses": [
+      {
+        "order": 0,
+        "parts": [
+          {
+            "position": {
+              "x": 0,
+              "y": 0,
+              "colSpan": 7,
+              "rowSpan": 6
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "chartType",
+                  "value": 2,
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') \n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\n    , 'License with Software Assurance(Paid)', iif(\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','Pay-as-yo-go(PAYG)',OriginalLicense))\n    )\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\n| extend Type = iif(\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\n        iif(\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\n            iif(\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\n                iif(\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\n                    iif(\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\n                        iif(\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\n                            'NONE'\n                        )\n                    )\n                )\n            )\n        )\n    )\n| project id, Type, location, subscriptionId, LicenseProperty,provisioningState\n| summarize count() by LicenseProperty",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryChartTile",
+              "settings": {
+                "content": {}
+              },
+              "partHeader": {
+                "title": "SQL Licenses",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 7,
+              "y": 0,
+              "colSpan": 6,
+              "rowSpan": 6
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server')\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','Pay-as-yo-go(PAYG)',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n    | where LicenseProperty=='Pay-as-yo-go(PAYG)'\r\n   | project id, Type, location, subscriptionId\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Pay as you go list",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 13,
+              "y": 0,
+              "colSpan": 6,
+              "rowSpan": 6
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server')\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n    | where LicenseProperty=='AHUB' or LicenseProperty=='License with Software Assurance(Paid)'\r\n   | project id, Type, location, subscriptionId\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "AHUB  list",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 6,
+              "colSpan": 7,
+              "rowSpan": 6
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "chartType",
+                  "value": 2,
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and \n(type == 'microsoft.sql/instancepools' or type == 'microsoft.sql/managedinstances')\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\n    , 'License with Software Assurance(Paid)', iif(\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\n    )\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\n| extend Type = iif(\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\n        iif(\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\n            iif(\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\n                iif(\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\n                    iif(\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\n                        iif(\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\n                            'NONE'\n                        )\n                    )\n                )\n            )\n        )\n    )\n| where provisioningState =~ 'Succeeded'\n| project id, Type, location, subscriptionId, LicenseProperty,provisioningState\n| summarize count() by LicenseProperty",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryChartTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Azure SQL MI",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 7,
+              "y": 6,
+              "colSpan": 14,
+              "rowSpan": 6
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server')  and \r\n(type == 'microsoft.sql/instancepools' or type == 'microsoft.sql/managedinstances')\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n| where provisioningState =~ 'Succeeded'\r\n   | project id, Type, location, subscriptionId, LicenseProperty,properties.state,provisioningState\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Details",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 12,
+              "colSpan": 7,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and \n(type == 'microsoft.sql/servers/databases' or type == 'microsoft.sql/servers/elasticpools')\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\n    , 'License with Software Assurance(Paid)', iif(\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\n    )\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\n| extend Type = iif(\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\n        iif(\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\n            iif(\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\n                iif(\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\n                    iif(\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\n                        iif(\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\n                            'NONE'\n                        )\n                    )\n                )\n            )\n        )\n    )\n| where provisioningState =~ 'Succeeded'\n| project id, Type, location, subscriptionId, LicenseProperty,provisioningState\n| summarize count() by LicenseProperty",
+                  "isOptional": true
+                },
+                {
+                  "name": "chartType",
+                  "value": 2,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryChartTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Azure SQL DB",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 7,
+              "y": 12,
+              "colSpan": 14,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and\r\n(type == 'microsoft.sql/servers/databases' or type == 'microsoft.sql/servers/elasticpools')\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n| where provisioningState =~ 'Succeeded'\r\n   | project id, Type, location, subscriptionId, LicenseProperty,properties.state,provisioningState\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Details",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 17,
+              "colSpan": 7,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "chartType",
+                  "value": 2,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and \ntype == 'microsoft.sqlvirtualmachine/sqlvirtualmachines'\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\n    , 'License with Software Assurance(Paid)', iif(\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\n    )\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\n| extend Type = iif(\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\n        iif(\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\n            iif(\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\n                iif(\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\n                    iif(\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\n                        iif(\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\n                            'NONE'\n                        )\n                    )\n                )\n            )\n        )\n    )\n| project id, Type, location, subscriptionId, LicenseProperty,provisioningState\n| summarize count() by LicenseProperty",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryChartTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Azure VM SQL",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 7,
+              "y": 17,
+              "colSpan": 14,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and \r\n['type'] == 'microsoft.sqlvirtualmachine/sqlvirtualmachines'\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n   | project id, Type, location, subscriptionId, LicenseProperty,properties.state,provisioningState\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Details",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 22,
+              "colSpan": 7,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "chartType",
+                  "value": 2,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and \n(type == 'microsoft.azurearcdata/sqlserverinstances')\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\n    , 'License with Software Assurance(Paid)', iif(\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\n    )\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\n| extend Type = iif(\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\n        iif(\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\n            iif(\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\n                iif(\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\n                    iif(\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\n                        iif(\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\n                            'NONE'\n                        )\n                    )\n                )\n            )\n        )\n    )\n| where provisioningState =~ 'Succeeded'\n| project id, Type, location, subscriptionId, LicenseProperty,provisioningState\n| summarize count() by LicenseProperty",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryChartTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Arc SQL",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 7,
+              "y": 22,
+              "colSpan": 14,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and \r\n['type'] == 'microsoft.azurearcdata/sqlserverinstances'\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n   | project id, Type, location, subscriptionId, LicenseProperty,properties.state,provisioningState\r\n | order by Type asc",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "Details",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 40,
+              "colSpan": 14,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and\r\n(type == 'microsoft.sql/servers/databases' or type == 'microsoft.sql/servers/elasticpools')\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n| where provisioningState =~ 'Succeeded'\r\n   | project id, Type, location, subscriptionId, LicenseProperty,properties.state,provisioningState\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "List SQL Servers",
+                "subtitle": ""
+              }
+            }
+          },
+          {
+            "position": {
+              "x": 0,
+              "y": 52,
+              "colSpan": 14,
+              "rowSpan": 5
+            },
+            "metadata": {
+              "inputs": [
+                {
+                  "name": "chartType",
+                  "isOptional": true
+                },
+                {
+                  "name": "isShared",
+                  "isOptional": true
+                },
+                {
+                  "name": "queryId",
+                  "isOptional": true
+                },
+                {
+                  "name": "partTitle",
+                  "value": "Query 1",
+                  "isOptional": true
+                },
+                {
+                  "name": "formatResults",
+                  "value": true,
+                  "isOptional": true
+                },
+                {
+                  "name": "queryScope",
+                  "value": {
+                    "scope": 0,
+                    "values": []
+                  },
+                  "isOptional": true
+                },
+                {
+                  "name": "query",
+                  "value": "resources\r\n| where ((properties.licenseType != '' or properties.sqlServerLicenseType != '') and properties.licenseType != 'Windows_Server') and\r\n(type == 'microsoft.sql/servers/databases' or type == 'microsoft.sql/servers/elasticpools')\r\n| extend OriginalLicense = iif(properties.licenseType != '', tostring(properties.licenseType), tostring(properties.sqlServerLicenseType))\r\n| extend LicenseProperty = iif(OriginalLicense == 'AHUB' or OriginalLicense== 'Paid' or OriginalLicense== 'ServerCAL'\r\n    , 'License with Software Assurance(Paid)', iif(\r\n        OriginalLicense == 'PAYG', 'Pay-as-yo-go(PAYG)'\r\n       , iif(OriginalLicense=='BasePrice','AHUB',iif(OriginalLicense=='LicenseIncluded','PAYG',OriginalLicense))\r\n    )\r\n), provisioningState = iif(tostring(properties.provisioningState)=='','Succeeded',tostring(properties.provisioningState))\r\n| extend Type = iif(\r\n        type == 'microsoft.sql/instancepools', 'SQLMIPOOL',\r\n        iif(\r\n            type == 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'SQLVM',\r\n            iif(\r\n                type == 'microsoft.sql/servers/databases', 'SQLDB',\r\n                iif(\r\n                    type == 'microsoft.sql/servers/elasticpools', 'SQLEPOOL',\r\n                    iif(\r\n                        type == 'microsoft.azurearcdata/sqlserverinstances', 'ARCSQL',\r\n                        iif(\r\n                            type == 'microsoft.sql/managedinstances', 'SQLMI',\r\n                            'NONE'\r\n                        )\r\n                    )\r\n                )\r\n            )\r\n        )\r\n    )\r\n| where provisioningState =~ 'Succeeded'\r\n   | project id, Type, location, subscriptionId, LicenseProperty,properties.state,provisioningState\r\n | order by Type asc",
+                  "isOptional": true
+                }
+              ],
+              "type": "Extension/HubsExtension/PartType/ArgQueryGridTile",
+              "settings": {},
+              "partHeader": {
+                "title": "List SQL Servers",
+                "subtitle": ""
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "model": {
+        "timeRange": {
+          "value": {
+            "relative": {
+              "duration": 24,
+              "timeUnit": 1
+            }
+          },
+          "type": "MsPortalFx.Composition.Configuration.ValueTypes.TimeRange"
+        }
+      }
+    }
+  },
+  "name": "SQL License Type",
+  "type": "Microsoft.Portal/dashboards",
+  "location": "INSERT LOCATION",
+  "tags": {
+    "hidden-title": "SQL License Type"
+  },
+  "apiVersion": "2022-12-01-preview"
+}
