@@ -389,11 +389,11 @@ Register-AzAutomationScheduledRunbook `
     -ScheduleName $ScheduleName `
     -Parameters $RunbookArg  | Out-Null
 
-Start-AzAutomationRunbook `
+<#Start-AzAutomationRunbook `
     -ResourceGroupName $ResourceGroupName `
     -AutomationAccountName $AutomationAccountName `
     -Name $RunbookName `
     -Parameters $RunbookArg `
-    -ErrorAction SilentlyContinue | Out-Null
+    -ErrorAction SilentlyContinue | Out-Null#>
 
 Write-Output "Runbook '$RunbookName' has been imported and published successfully."
