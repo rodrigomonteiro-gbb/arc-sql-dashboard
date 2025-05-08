@@ -117,6 +117,10 @@ param(
     [ValidateSet("Yes","No", IgnoreCase=$false)]
     [string] $EnableESU="No",
 
+    [Parameter (Mandatory= $false)]
+    [ValidateSet("True","False", IgnoreCase=$false)]
+    [bool] $SkipDownload=$False,
+
     [Parameter(Mandatory=$false)]
     [hashtable]$ExclusionTags=$null
 )
@@ -158,10 +162,6 @@ if($null -ne $RunAt -and $RunAt -ne "") {
    $targetDate = Convert-ToDateTime -InputString $RunAt
     $Time = $targetDate.ToString("h:mmtt")
     $DayOfWeek=$targetDate.DayOfWeek
-    if ($null-eq $Location -or $Location -eq "") {
-        Write-Output "Location is requires for Schedule operations pleas euse the -Location parameter"
-        exit
-    }
 }
 <# For Prod Deployment
 $git = "sql-server-samples"
@@ -172,7 +172,8 @@ $environment = "rodrigomonteiro-gbb"
 # === Pre-compute LicenseType mappings ===
 $AzureLicenseType = $null
 $ArcLicenseType = $null
-$cleanDownloads=$false
+$cleanDownloads=$False
+## $SkipDownload=$True
 # For the Azure scripts
 switch ($SQLLicenseType) {
     'LicenseOnly' { $AzureLicenseType = 'BasePrice'; break }
@@ -273,8 +274,8 @@ function Invoke-RemoteScript {
         Write-Host "Downloading $scriptUrls.Azure.URL to $supportdest..."
         Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
 
-        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "") -or ($null -ne $Time -and $DayOfWeek -ne "") -or ($null -ne $DayOfWeek -ne "")) {"``"}
-        $nextline2 = if(($null -ne $SubId -and $SubId -ne "") -or ($null -ne $Time -and $DayOfWeek -ne "") -or ($null -ne $DayOfWeek -ne "")){"``"}
+        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
+        $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
         $nextline3 = if(($null -ne $Time -and $DayOfWeek -ne "")){"``"}
         $nextline4 = if(($null -ne $DayOfWeek -ne "")){"``"}
         $wrapper += @"
@@ -290,11 +291,9 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
     $scriptname -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeArc' ``
     -RunbookPath '$(Split-Path $scriptUrls.Arc.URL -Leaf)' ``
     -RunbookArg `$RunbookArg $($nextline)
+    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId $nextline3" })
 "@
-        if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { $wrapper +="-ResourceGroup `$ResourceGroup $nextline2" }
-        if ($null -ne $SubId -and $SubId -ne "") { $wrapper +="-SubId `$SubId $nextline3" }
-        if ($null -ne $Time -and $Time -ne "") { $wrapper += "-Time `$Time $nextline4" }
-        if ($null -ne $DayOfWeek -and $DayOfWeek -ne "") { $wrapper +="-DayOfWeek `$DayOfWeek " }
 
     }
 
@@ -305,7 +304,8 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
         Write-Host "Downloading $($scriptUrls.Azure.URL) to $supportdest..."
         Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $supportdest
 
-
+        $nextline = if(($null -ne $ResourceGroup -and $ResourceGroup -ne "") -or ($null -ne $SubId -and $SubId -ne "")) {"``"}
+        $nextline2 = if(($null -ne $SubId -and $SubId -ne "")){"``"}
         $wrapper += @"
 `$RunbookArg =@{
     Force_Start_On_Resources = `$true
@@ -318,12 +318,11 @@ $(if ($null -ne $ExclusionTags -and $ExclusionTags -ne "") { "ExclusionTags=`$Ex
 $scriptname     -ResourceGroupName `$ResourceGroupName -AutomationAccountName `$AutomationAccountName -Location `$Location -RunbookName 'ModifyLicenseTypeAzure' ``
     -RunbookPath '$(Split-Path $scriptUrls.Azure.URL -Leaf)'``
     -RunbookArg `$RunbookArg $($nextline)
+    $(if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { "-ResourceGroup `$ResourceGroup $nextline2" })
+    $(if ($null -ne $SubId -and $SubId -ne "") { "-SubId `$SubId $nextline3" })
 "@
-    if ($null -ne $ResourceGroup -and $ResourceGroup -ne "") { $wrapper +="-ResourceGroup `$ResourceGroup $nextline2" }
-    if ($null -ne $SubId -and $SubId -ne "") { $wrapper +="-SubId `$SubId $nextline3" }
-    if ($null -ne $Time -and $Time -ne "") { $wrapper += "-Time `$Time $nextline4" }
-    if ($null -ne $DayOfWeek -and $DayOfWeek -ne "") { $wrapper +="-DayOfWeek `$DayOfWeek " }
-}
+
+    }
     $wrapper | Out-File -FilePath './runnow.ps1' -Encoding UTF8
     .\runnow.ps1
 }
@@ -354,8 +353,27 @@ if($RunMode -eq "Single") {
     if ($Target -eq "Both" -or $Target -eq "Arc") {
         $fileName = Split-Path $scriptUrls.Arc.URL -Leaf
         $dest     = Join-Path $downloadFolder $fileName
-        Write-Host "Downloading $($scriptUrls.Arc.URL) to $dest..."
-        Invoke-RestMethod -Uri $scriptUrls.Arc.URL -OutFile $dest
+
+        if ($SkipDownload -eq $False) {
+            Write-Host "Downloading $($scriptUrls.Arc.URL) to $dest..."
+            Invoke-RestMethod -Uri $scriptUrls.Arc.URL -OutFile $dest
+        } else {
+            ###
+            Write-Host "Skipping Download of $($scriptUrls.Arc.URL) to $dest..."
+            $downloadFolder = Join-Path -Path $PSScriptRoot -ChildPath "PayTransitionDownloads"
+            $file1 = Join-Path -Path $downloadFolder -ChildPath "modify-arc-sql-license-type.ps1"
+            $file2 = Join-Path -Path $downloadFolder -ChildPath "modify-azure-sql-license-type.ps1"
+            Write-Host "..checking the presence of file $file1"
+            Write-Host "..checking the presence of file $file2"
+            if (-not (Test-Path $file1) -or -not (Test-Path $file2)) {
+                Write-Host "Required files are missing in the 'PayTransitionDownloads' folder:"
+                if (-not (Test-Path $file1)) { Write-Host " - $file1 not found" }
+                if (-not (Test-Path $file2)) { Write-Host " - $file2 not found" }
+                Write-Host "Aborting script execution."
+                exit 1
+            }
+            ###
+        }
 
         
         $wrapper +="$dest ``" 
@@ -385,8 +403,27 @@ if($RunMode -eq "Single") {
     if ($Target -eq "Both" -or $Target -eq "Azure") {
         $fileName = Split-Path $scriptUrls.Azure.URL -Leaf
         $dest     = Join-Path $downloadFolder $fileName
-        Write-Host "Downloading $($scriptUrls.Azure.URL) to $dest..."
-        Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $dest
+
+        if ($SkipDownload -eq $False) {
+            Write-Host "Downloading $($scriptUrls.Azure.URL) to $dest..."
+            Invoke-RestMethod -Uri $scriptUrls.Azure.URL -OutFile $dest
+        } else {
+            ###
+            Write-Host "Skipping Download of $($scriptUrls.Arc.URL) to $dest..."
+            $downloadFolder = Join-Path -Path $PSScriptRoot -ChildPath "PayTransitionDownloads"
+            $file1 = Join-Path -Path $downloadFolder -ChildPath "modify-arc-sql-license-type.ps1"
+            $file2 = Join-Path -Path $downloadFolder -ChildPath "modify-azure-sql-license-type.ps1"
+            Write-Host "..checking the presence of file $file1"
+            Write-Host "..checking the presence of file $file2"
+            if (-not (Test-Path $file1) -or -not (Test-Path $file2)) {
+                Write-Host "Required files are missing in the 'PayTransitionDownloads' folder:"
+                if (-not (Test-Path $file1)) { Write-Host " - $file1 not found" }
+                if (-not (Test-Path $file2)) { Write-Host " - $file2 not found" }
+                Write-Host "Aborting script execution."
+                exit 1
+            }
+            ###
+        }
 
        
         $wrapper +="$dest ``" 
@@ -422,7 +459,7 @@ if($RunMode -eq "Single") {
     Invoke-RemoteScript -Url $scriptUrls.General.URL -Target $Target -RunMode $RunMode -ExclusionTags $Tags
 }
 # === Cleanup downloaded files & folder ===
-if($cleanDownloads -eq $true) {
+if($cleanDownloads -eq $true -and $SkipDownload -eq $False) {
     if (Test-Path $downloadFolder) {
         Write-Host "Cleaning up downloaded scripts in $downloadFolder..."
         try {
