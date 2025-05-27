@@ -1,142 +1,202 @@
-#
-# This script provides a scaleable solution to set or change the license type and/or enable or disable the ESU policy 
-# on all Azure-connected SQL Servers in a specified scope.
-#
-# You can specfy a single subscription to scan, or provide subscriptions as a .CSV file with the list of IDs.
-# If not specified, all subscriptions your role has access to are scanned.
-#
-# The script accepts the following command line parameters:
-#.
-# -SubId [subscription_id] | [csv_file_name]    (Optional. Limits the scope to specific subscriptions. Accepts a .csv file with the list of subscriptions.
-#                                               If not specified all subscriptions will be scanned)
-# -ResourceGroup [resource_goup]                (Optional. Limits the scope to a specific resoure group)
-# -MachineName [machine_name]                   (Optional. Limits the scope to a specific machine)
-# -LicenseType [license_type_value]             (Optional. Sets the license type to the specified value)
-# -UsePcoreLicense  [Yes or No]                 (Optional. Enables unlimited virtualization license if the value is "Yes" or disables it if the value is "No"
-#                                               To enable, the license type must be "Paid" or "PAYG"
-# -EnableESU  [Yes or No]                       (Optional. Enables the ESU policy if the value is "Yes" or disables it if the value is "No"
-#                                               To enable, the license type must be "Paid" or "PAYG"
-# -Force                                        (Optional. Forces the chnahge of the license type to the specified value on all installed extensions.
-#                                               If Force is not specified, the -LicenseType value is set only if undefined. Ignored if -LicenseType  is not specified
-#
-# This script uses a function ConvertTo-HashTable that was created by Adam Bertram (@adam-bertram).
-# The function was originally published on https://4sysops.com/archives/convert-json-to-a-powershell-hash-table/
-# and is used here with the author's permission.
-#
+
+<#
+.SYNOPSIS
+    Updates the license type for Azure Arc SQL resources to a specified license and license related options.  
+
+.DESCRIPTION
+    The script updates the license related settings of the SQL extension resources in a specified Entra ID tenant. You can specify a particular subscription, resource group or an individual connected machine. 
+    You can also provide a list of subscriptions as a .CSV file. 
+    By default, all subscriptions in your current tenant id are scanned.
+
+.VERSION
+    3.0.5 - Initial version.
+
+.PARAMETER SubId
+    A single subscription ID or a CSV file name containing a list of subscriptions.
+
+.PARAMETER ResourceGroup
+    Optional. Limit the scope to a specific resource group.
+
+.PARAMETER MachineName 
+    Optional. A single machine name or a CSV file name containing a list of machine names.
+
+.PARAMETER LicenseType
+    Optional. License type to set. Allowed values: "PAYG", "Paid" or "LicenseOnly"
+
+.PARAMETER ConsentToRecurringPAYG 
+    Optional. Consents to enabling the recurring PAYG billing. LicenseType must be "PAYG". Applies to CSP subscriptions only.
+
+.PARAMETER UsePcoreLicense
+    Optional. Opts in to use unlimited virtualization license if the value is "Yes", or opts out if the value is "No". To opt in, the license type must be "Paid" or "PAYG"
+
+.PARAMETER EnableESU
+    Optional. Enables the ESU policy if the value is "Yes" or disables it if the value is "No". To enable, the license type must be "Paid" or "PAYG"
+
+.PARAMETER Force
+    Optional. Forces the change of the license type to the specified value on all installed extensions. If not forced, the changes will apply only to the extensions where the license type is undefined.    
+
+.PARAMETER ExclusionTags
+    Optional. If specified, excludes the resources that have this tag assigned.
+
+.PARAMETER TenantId
+    Optional. If specified, this tenant id to log in both PowerShell and CLI. Otherwise, the current login context is used.
+
+.PARAMETER ReportOnly
+    Optional. If true, generates a csv file with the list of resources that are to be modified, but doesn't make the actual change.
+
+.PARAMETER UseManagedIdentity
+    Optional. If true, logs in both PowerShell and CLI using managed identity. Required to run the script as a runbook.
+
+#>
 
 param (
     [Parameter (Mandatory=$false)]
     [string] $SubId,
+
     [Parameter (Mandatory= $false)]
     [string] $ResourceGroup,
+
     [Parameter (Mandatory= $false)]
     [string] $MachineName,
+
     [Parameter (Mandatory= $false)]
     [ValidateSet("PAYG","Paid","LicenseOnly", IgnoreCase=$false)]
     [string] $LicenseType,
+
+    [Parameter (Mandatory= $false)]
+    [ValidateSet("Yes","No", IgnoreCase=$false)]
+    [string] $ConsentToRecurringPAYG,
+    
     [Parameter (Mandatory= $false)]
     [ValidateSet("Yes","No", IgnoreCase=$false)]
     [string] $UsePcoreLicense,
+
     [Parameter (Mandatory= $false)]
     [ValidateSet("Yes","No", IgnoreCase=$false)]
     [string] $EnableESU,
+
     [Parameter (Mandatory= $false)]
     [switch] $Force,
+
     [Parameter (Mandatory= $false)]
-    [object] $ExclusionTags
+    [object] $ExclusionTags,
+
+    [Parameter (Mandatory= $false)]
+    [string] $TenantId,
+
+    [Parameter (Mandatory= $false)]
+    [switch] $ReportOnly,
+   
+    [Parameter (Mandatory= $false)]
+    [switch] $UseManagedIdentity,
+    [Parameter (Mandatory= $false)]
+    [int] $batchSize = 500
 )
+
 function Connect-Azure {
     [CmdletBinding()]
     param(
-        [switch]$UseManagedIdentity
+        [Parameter(Mandatory=$false)]
+        [string] $TenantId = $null,
+
+        [Parameter(Mandatory=$false)]
+        [switch] $UseManagedIdentity
     )
 
-    # 1) Detect environment
-    $envType = "Local"
-    if ($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'cloud-shell*') {
-        $envType = "CloudShell"
+    # 1) Detect host environment
+    $envType = 'Local'
+    if ($env:AZUREPS_HOST_ENVIRONMENT -like 'cloud-shell*') {
+        $envType = 'CloudShell'
     }
-    elseif (($env:AZUREPS_HOST_ENVIRONMENT -and $env:AZUREPS_HOST_ENVIRONMENT -like 'AzureAutomation*') -or $PSPrivateMetadata.JobId) {
-        $envType = "AzureAutomation"
-        $UseManagedIdentity=$true
+    elseif (($env:AZUREPS_HOST_ENVIRONMENT -like 'AzureAutomation*') -or $PSPrivateMetadata.JobId) {
+        $envType = 'AzureAutomation'
+        $UseManagedIdentity = $true
     }
-    Write-Verbose "Environment detected: $envType"
+    Write-Output "Environment detected: $envType"
 
     # 2) Ensure Az.PowerShell context
-    try {
-        $ctx = Get-AzContext -ErrorAction Stop
-        if (-not $ctx.Account) { throw }
-        Write-Output "Already connected to Azure PowerShell as: $($ctx.Account)"
-    }
-    catch {
-        Write-Output "Not connected to Azure PowerShell. Running Connect-AzAccount..."
-        if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
-            Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
-        }
-        else {
-            Connect-AzAccount -ErrorAction Stop | Out-Null
-        }
-        $ctx = Get-AzContext
-        Write-Output "Connected to Azure PowerShell as: $($ctx.Account)"
-    }
-
-    # 3) Sync Azure CLI if available
-    if (Get-Command az -ErrorAction SilentlyContinue) {
-        try {
-            Write-Output "Check if az CLI is loged on..."
-            $acct = az account show --output json | ConvertFrom-Json
-            Write-Output "az: $($acct)"
-            if($null -eq $acct)
-            {
-                Write-Output "Azure CLI not logged in. Running az login..."
-                if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
-                    az login --identity | Out-Null
-                }
-                else {
-                    az login | Out-Null
-                }
-                $acct = az account show --output json | ConvertFrom-Json
-            }
-        }
-        catch {
-            Write-Output "Azure CLI not logged in. Running az login..."
-            if ($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
-                az login --identity | Out-Null
+    $currentCtx = Get-AzContext -ErrorAction SilentlyContinue
+    if ($currentCtx -and $currentCtx.Account) {
+        if ($TenantId) {
+            if ($currentCtx.Tenant.Id -eq $TenantId) {
+                Write-Output "Already in Az tenant $TenantId"
             }
             else {
-                az login | Out-Null
-            }
-            $acct = az account show --output json | ConvertFrom-Json
+                Write-Output "Switching Az context to tenant $TenantId without re-authentication"
+                $newContext = Set-AzContext -Tenant $TenantId -ErrorAction SilentlyContinue
+                if($null -eq $newContext -or $newContext.TenantId -ne $TenantId)
+                {
+                  Connect-AzAccount -Tenant $TenantId  | Out-Null
+                }
+            } 
+        }
+        else {
+            Write-Output "Using existing Az context: Tenant $($currentCtx.Tenant.Id)"
         }
     }
-    Write-Output "Azure CLI logged in as: $($acct.user.name)"        
-
+    else {
+        Write-Output "Not connected to Az PowerShell—authenticating..."
+        if ($UseManagedIdentity) {
+            if ($TenantId) {
+                Connect-AzAccount -Identity -Tenant $TenantId  | Out-Null
+            }
+            else {
+                Connect-AzAccount -Identity -ErrorAction Stop | Out-Null
+            }
+        }
+        else {
+            if ($TenantId) {
+                Connect-AzAccount -Tenant $TenantId | Out-Null
+            }
+            else {
+                Connect-AzAccount | Out-Null
+            }
+        }
+        $ctx = Get-AzContext
+        Write-Output "Connected to Az PowerShell as: $($ctx.Account) in tenant $($ctx.Tenant.Id)"
+    }
 }
+
 
 # Convert to hashtable explicitly
 $tagTable = @{}
 if($null -ne $ExclusionTags){
-if($ExclusionTags.GetType().Name -eq "Hashtable"){
-    $tagTable = $ExclusionTags    
-}else{
-    ($ExclusionTags | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
-        $tagTable[$_.Name] = $_.Value
+    if($ExclusionTags.GetType().Name -eq "Hashtable"){
+        $tagTable = $ExclusionTags    
+    }else{
+        ($ExclusionTags | ConvertFrom-Json).PSObject.Properties | ForEach-Object {
+            $tagTable[$_.Name] = $_.Value
+        }
     }
 }
+# Ensure connection with both PowerShell and CLI.
+if($UseManagedIdentity -or $envType -eq 'AzureAutomation') {
+    if ($TenantId) {
+        Connect-Azure -TenantId $TenantId -UseManagedIdentity $UseManagedIdentity
+    } else {
+        Connect-Azure -UseManagedIdentity $UseManagedIdentity
+    }
+} else {
+    if ($TenantId) {
+        Connect-Azure -TenantId $TenantId
+    } else {
+        Connect-Azure
+    }
 }
 
-# Ensure connection with both PowerShell and CLI.
-Connect-Azure
 $context = Get-AzContext -ErrorAction SilentlyContinue
 Write-Output "Connected to Azure as: $($context.Account)"
 
+if (-not $TenantId) {
+    $TenantId = $context.Tenant.Id
+    Write-Output "No TenantId provided. Using current context TenantId: $TenantId"
+} else {
+    Write-Output "Using provided TenantId: $TenantId"
+}
 
-try{
-    Import-Module AzureAD -UseWindowsPowerShell
-}
-catch{
-    Write-Output "Can't import module AzureAD"
-}
+
+# Ensure the required modules are imported
+
 try{
     Import-Module Az.Accounts
 }catch{
@@ -155,15 +215,36 @@ catch{
     Write-Output "Can't import module Az.ResourceGraph"
 }
 
-$tenantID = $context.Tenant.id
+$modifiedResources = @()
 
 if ($SubId -like "*.csv") {
     $subscriptions = Import-Csv $SubId
 }elseif($SubId -ne "") {
     Write-Output "Passed Subscription $($SubId)"
-    $subscriptions = [PSCustomObject]@{SubscriptionId = $SubId} | Get-AzSubscription -TenantID $tenantID
+    $subscriptions = Get-AzSubscription -SubscriptionId $SubId
 }else {
-    $subscriptions = Get-AzSubscription -TenantID $tenantID
+    $subscriptions = Get-AzSubscription | Where-Object { $_.TenantId -eq $tenantId }
+}
+
+# Handle MachineName input (single or CSV)
+$machineNames = @()
+if ($MachineName) {
+    if ($MachineName -like "*.csv") {
+        try {
+            $machines = Import-Csv $MachineName
+            foreach ($m in $machines) {
+                if ($m.MachineName) {
+                    $machineNames += $m.MachineName
+                }
+            }
+            Write-Output "Loaded $($machineNames.Count) machine names from CSV."
+        } catch {
+            Write-Error "Failed to import machine names from CSV: $_"
+            exit 1
+        }
+    } else {
+        $machineNames += $MachineName
+    }
 }
 
 Write-Host ([Environment]::NewLine + "-- Scanning subscriptions --")
@@ -178,90 +259,80 @@ foreach ($sub in $subscriptions) {
         {continue}
     }
 
-    # Consent tag enforcement on the CSP subscriptions
-    if ($LicenseType -eq "PAYG") {
-        $offers = @("MS-AZR-0145P", "MS-AZR-DE-0145P", "MS-AZR-0017G", "MS-AZR-159P", "MS-AZR-USGOV-0145P")
-        $subscriptionOffers = Get-AzSubscription -SubscriptionId $sub.Id | Select-Object -ExpandProperty OfferId -ErrorAction SilentlyContinue
-        if ($subscriptionOffers -contains $offers) {
-            if ($tags.Tags.ContainsKey("SQLPerpetualPaygBilling")) {
-                if ($tags.Tags["SQLPerpetualPaygBilling"] -ne "Enabled") {
-                    write-host "Error: Subscription $($sub.Id) has an incorrect value $($tags.Tags["SQLPerpetualPaygBilling"]) of the consent tag 'SQLPerpetualPaygBilling' ."
-                    continue
-                }
-            } else {
-                write-host "Error: Subscription $($sub.Id) does not have the consent tag 'SQLPerpetualPaygBilling'."
-                continue
-            }
-        }
-    }
-
     Write-Output "Collecting list of resources to update"
+
     $query = "
     resources
-    |  where type =~ 'microsoft.hybridcompute/machines/extensions'
     | where subscriptionId =~ '$($sub.Id)'
-    | extend extensionPublisher = tostring(properties.publisher), 
-    extensionType = tostring(properties.type), provisioningState = tostring(properties.provisioningState)
-    | parse id with * '/providers/Microsoft.HybridCompute/machines/' machineName '/extensions/' *
-    | where extensionPublisher =~ 'Microsoft.AzureData'
-    | where provisioningState =~ 'Succeeded'
-    | where properties.settings.LicenseType!='$LicenseType'
-    | join kind=leftouter (
-    resources
-    | where type == 'microsoft.azurearcdata/sqlserverinstances'
-    | project machineName= name, edition = properties.edition, mytags = tags"
-
-    <#if($tagTable.Keys.Count -gt 0) {
-        $query += "| where "
-        $tagcount = $tagTable.Keys.Count
-        foreach ($tag in $tagTable.Keys) {
-            $tagcount --
-            $query += "(mytags['$($tag)'] != '$($tagTable[$tag])')"
-            if($tagcount -gt 0) {
-                $query += " and "
-            }
-        }
-    }#>
-
-    $query += ") on machineName"
-    
+    | where type == 'microsoft.hybridcompute/machines'
+    | where properties.detectedProperties.mssqldiscovered == 'true'"
     if ($ResourceGroup) {
-        $query += "| where resourceGroup =~ '$($ResourceGroup)'"
+        $query += "
+    | where resourceGroup =~ '$ResourceGroup'"
     }
 
-    if ($MachineName) {
-        $query += "| where machineName =~ '$($MachineName)'"
-    } 
-    
+    if ($machineNames.Count -gt 0) {
+        $machineFilter = ($machineNames | ForEach-Object { "'$_'" }) -join ", "
+        $query += "| where name in~ ($machineFilter)"
+    }
+
     $query += "
-    | project machineName, extensionName = name, resourceGroup, location, subscriptionId, extensionPublisher, extensionType, properties,provisioningState, edition
-    "
-    $query
-    $resources = Search-AzGraph -Query "$($query)" 
+    | extend machineId = tolower(tostring(id))
+    | project machineId, machineName = tolower(name)
+    | join kind= inner (
+        resources
+        | where subscriptionId =~ '$($sub.Id)'
+        | where type == 'microsoft.hybridcompute/machines/extensions'
+        | where properties.publisher =~ 'Microsoft.AzureData'
+        | where properties.provisioningState == 'Succeeded'
+        | where properties.settings.LicenseType!='$LicenseType'
+        | extend extensionName = name
+        | extend extensionPublisher = properties.publisher
+        | extend extensionType = properties.type
+        | parse id with '/subscriptions/' subscriptionId '/resourceGroups/' resourceGroup '/providers/Microsoft.HybridCompute/machines/' machineNameRaw '/extensions/' extensionName
+        | extend machineName = tolower(machineNameRaw)
+        ) on `$left.machineName == `$right.machineName
+    | project machineName, extensionName, resourceGroup, location, subscriptionId, extensionPublisher, extensionType
+    | order by machineName asc"
+   
+    $skipToken = $null
+
+    Write-Output $query
+
     Write-Output "Found $($resources.Count) resource(s) to update"
-    $count = $resources.Count
+    $allResults = [System.Collections.Generic.List[PSObject]]::new()
+    do{
+        $resources = Search-AzGraph -Query "$($query)" -First $batchSize -SkipToken $skipToken
+        $allResults.AddRange($resources)
+        $skipToken = $resources.SkipToken
+    }while($skipToken)
+
+
+    $count = $allResults.Count
+
     
     while($count -gt 0) {
         $count-=1
-        Write-Output "VM-$($count)"
-        write-Output "VM - $($resources[$count].MachineName)"
         $setID = @{
-            MachineName = $resources[$count].MachineName
-            Name = $resources[$count].extensionName
-            ResourceGroup = $resources[$count].resourceGroup
-            Location = $resources[$count].location
-            SubscriptionId = $resources[$count].subscriptionId
-            Publisher = $resources[$count].extensionPublisher
-            ExtensionType = $resources[$count].extensionType
-            Edition = $resources[$count].edition
+            MachineName = $allResults[$count].MachineName
+            Name = $allResults[$count].extensionName
+            ResourceGroup = $allResults[$count].resourceGroup
+            Location = $allResults[$count].location
+            SubscriptionId = $allResults[$count].subscriptionId
+            Publisher = $allResults[$count].extensionPublisher
+            ExtensionType = $allResults[$count].extensionType
         }
 
-        write-Output "VM - $($setID.MachineName)"
+        write-Output "   MachineName - $($setID.MachineName)"
         write-Output "   ResourceGroup - $($setID.ResourceGroup)"
         write-Output "   Location - $($setID.Location)"
         write-Output "   SubscriptionId - $($setID.SubscriptionId)"
         write-Output "   ExtensionType - $($setID.ExtensionType)"
-        $sqlvm = Get-AzConnectedMachine -Name $setID.MachineName -ResourceGroup $setID.ResourceGroup | Select-Object Name, Tags
+        
+        # Get connected machine info
+        $sqlvm = Get-AzConnectedMachine -Name $setID.MachineName -ResourceGroup $setID.ResourceGroup | Select-Object Name, Tags, Status
+
+        
         $excludedByTags = $false
         foreach ($tag in $tagTable.Keys){
             if($sqlvm.Tags.ContainsKey($tag))
@@ -278,18 +349,27 @@ foreach ($sub in $subscriptions) {
            
         
         $WriteSettings = $false
-        $settings = @{}
-        $settings = $resources[$count].properties.settings | ConvertTo-Json | ConvertFrom-Json
         $ext = Get-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName
+
+        # Collect data before modification
+        $modifiedResources += [PSCustomObject]@{
+            TenantID            = $TenantId
+            SubID               = $setID.SubscriptionId
+            ResourceName        = $setID.MachineName
+            ResourceType        = $setID.ExtensionType
+            Status              = $sqlvm.Status
+            OriginalLicenseType = $ext.Setting["LicenseType"]
+            ResourceGroup       = $setID.ResourceGroup
+            Location            = $setID.Location
+            # Cores             <To be added>
+        }
+
         if($ext.ProvisioningState -ne "Succeeded") {
             write-Output "Extension is not in a valid state. Skipping..."
             {continue}
         } else {
-            $LO_Allowed = (!$settings["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
+            $LO_Allowed = (!$ext.Setting["enableExtendedSecurityUpdates"] -and !$EnableESU) -or  ($EnableESU -eq "No")
             
-            
-            write-Output "   LicenseType - $($settings.LicenseType)"
-
             if ($LicenseType) {
                 if (($LicenseType -eq "LicenseOnly") -and !$LO_Allowed) {
                     write-Output "ESU must be disabled before license type can be set to $($LicenseType)"
@@ -306,10 +386,6 @@ foreach ($sub in $subscriptions) {
                 }
             }
             
-            if ($setID.Edition -eq "Express") {
-                $LicenseType = "LicenseOnly"
-            }
-
             if ($EnableESU) {
                 if (($ext.Setting["LicenseType"] -in ("Paid","PAYG")) -or  ($EnableESU -eq "No")) {
                     $ext.Setting["enableExtendedSecurityUpdates"] = ($EnableESU -eq "Yes")
@@ -331,18 +407,49 @@ foreach ($sub in $subscriptions) {
                     write-Output "The configured license type does not support ESUs" 
                 }
             }
-            write-Output "   Write Settings - $($WriteSettings)"
-            If ($WriteSettings) {
-                try { 
-                    $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait -ErrorAction SilentlyContinue | Out-Null
-                    Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
-                } catch {
-                    write-Output "The request to modify the extension object failed with the following error:"
-                    {continue}
+            
+            # Add or update ConsentToRecurringPAYG setting if applicable
+            if ($ConsentToRecurringPAYG -eq "Yes") {
+                $isPayg = ($LicenseType -eq "PAYG") -or ($ext.Setting["LicenseType"] -eq "PAYG")
+                if ($isPayg) {
+                    if (-not $ext.Setting.ContainsKey("ConsentToRecurringPAYG") -or -not $ext.Setting["ConsentToRecurringPAYG"]["Consented"]) {
+                        $ext.Setting["ConsentToRecurringPAYG"] = @{
+                            "Consented" = $true;
+                            "ConsentTimestamp" = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+                        }
+                        $WriteSettings = $true
+                    }
                 }
             }
+
+            write-Output "   Write Settings - $($WriteSettings)"
+
+            if (-not $ReportOnly) {
+                If ($WriteSettings) {
+                    try { 
+                        $ext | Set-AzConnectedMachineExtension -Name $setID.Name -ResourceGroupName $setID.ResourceGroup -MachineName $setID.MachineName -NoWait -ErrorAction SilentlyContinue | Out-Null
+                        Write-Output "Updated -- Resource group: [$($setID.ResourceGroup)], Connected machine: [$($setID.MachineName)]"
+                    } catch {
+                        write-Output "The request to modify the extension object failed with the following error:"
+                        continue
+                    }
+                }
+            } else {
+                Write-Output "ReportOnly mode enabled. Skipping modification for: $($setID.MachineName)"
+            }
         }
+        
     }
     }
 }
-write-Output "Arc Update Script completed"
+
+# Export modified resource data to CSV
+if ($modifiedResources.Count -gt 0) {
+    $csvPath = "ModifiedResources_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
+    $modifiedResources | Export-Csv -Path $csvPath -NoTypeInformation
+    Write-Output "CSV report saved to: $csvPath"
+} else {
+    Write-Output "No resources were marked for modification. No CSV generated."
+}
+
+write-Output "Arc SQL Update Script completed"

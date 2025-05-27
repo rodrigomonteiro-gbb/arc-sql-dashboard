@@ -1,7 +1,0 @@
-"TenantID","SubID","ResourceName","ResourceType","Status","OriginalLicenseType","ResourceGroup","Location"
-"aa71eb8d-7e43-41bf-b9a4-aa239af89157","b9c57f9a-d9b6-4fa9-8180-ab85d7f2b672","win-qjba34v8n93","WindowsAgent.SqlServer","Connected","Paid","demoarc","westus2"
-"aa71eb8d-7e43-41bf-b9a4-aa239af89157","b9c57f9a-d9b6-4fa9-8180-ab85d7f2b672","win22-sql22-001","WindowsAgent.SqlServer","Connected","Paid","demoarc","westus2"
-"aa71eb8d-7e43-41bf-b9a4-aa239af89157","b9c57f9a-d9b6-4fa9-8180-ab85d7f2b672","win-sql01-c3ha","WindowsAgent.SqlServer","Connected","Paid","demoarc","westus2"
-"aa71eb8d-7e43-41bf-b9a4-aa239af89157","b9c57f9a-d9b6-4fa9-8180-ab85d7f2b672","win-sql01-c3ha","WindowsAgent.SqlServer","Connected","Paid","demoarc","westus2"
-"aa71eb8d-7e43-41bf-b9a4-aa239af89157","b9c57f9a-d9b6-4fa9-8180-ab85d7f2b672","win-qjba34v8n93","WindowsAgent.SqlServer","Connected","Paid","demoarc","westus2"
-"aa71eb8d-7e43-41bf-b9a4-aa239af89157","b9c57f9a-d9b6-4fa9-8180-ab85d7f2b672","win22-sql22-001","WindowsAgent.SqlServer","Connected","Paid","demoarc","westus2"
